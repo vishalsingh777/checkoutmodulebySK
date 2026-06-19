@@ -1,0 +1,396 @@
+<div class="insead-checkout">
+
+    <!-- ===================== Progress stepper ===================== -->
+    <ol class="insead-stepper">
+        <li class="insead-stepper__step _done"><span class="insead-stepper__num">1</span> Learning Cart</li>
+        <li class="insead-stepper__step _done"><span class="insead-stepper__num">2</span> Application</li>
+        <li class="insead-stepper__step" data-bind="css: {'_active': currentStep() === 'billing', '_done': currentStep() === 'payment'}">
+            <span class="insead-stepper__num">3</span> Billing Information
+        </li>
+        <li class="insead-stepper__step" data-bind="css: {'_active': currentStep() === 'payment'}">
+            <span class="insead-stepper__num">4</span> Payment
+        </li>
+    </ol>
+
+    <!-- Global error -->
+    <div class="insead-alert" data-bind="visible: globalError(), text: globalError()"></div>
+
+    <!-- ============================================================= -->
+    <!-- STEP 1 — BILLING INFORMATION                                  -->
+    <!-- ============================================================= -->
+    <div data-bind="visible: currentStep() === 'billing'">
+        <div class="insead-card">
+
+            <!-- Selector box -->
+            <div class="insead-selector">
+                <div class="field" data-bind="css: {'_error': hasError('country')}">
+                    <label>Country <span class="req">*</span></label>
+                    <select data-bind="options: countriesList, optionsValue: 'value', optionsText: 'label',
+                                       optionsCaption: '-- Select --', value: country"></select>
+                </div>
+                <div class="field">
+                    <label>Billing Profile</label>
+                    <select data-bind="value: financingProfile">
+                        <option value="b2c">Self-funded</option>
+                        <option value="b2b">Sponsored by Organisation</option>
+                    </select>
+                </div>
+                <!-- ko if: isB2B -->
+                <div class="field">
+                    <label>Tax Status</label>
+                    <select data-bind="options: taxStatusList, optionsValue: 'value', optionsText: 'label', value: taxStatus"></select>
+                </div>
+                <!-- /ko -->
+            </div>
+
+            <h2 class="insead-title">Billing Information</h2>
+            <p class="insead-hint">Required fields are marked with an asterisk <span class="req">*</span></p>
+
+            <!-- ---------- Self-funded (B2C) ---------- -->
+            <div data-bind="visible: isB2C">
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('b2cFirstName')}">
+                        <label>First name <span class="req">*</span></label>
+                        <input type="text" placeholder="Test" data-bind="value: b2cFirstName, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field" data-bind="css: {'_error': hasError('b2cLastName')}">
+                        <label>Last name <span class="req">*</span></label>
+                        <input type="text" placeholder="Sample" data-bind="value: b2cLastName, valueUpdate: 'input'"/>
+                    </div>
+                </div>
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('b2cEmail')}">
+                        <label>Email address</label>
+                        <input type="email" placeholder="test.sample@example.com" data-bind="value: b2cEmail, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field" data-bind="css: {'_error': hasError('gender')}">
+                        <label>Gender <span class="req">*</span></label>
+                        <select data-bind="options: genderOptions, optionsValue: 'value', optionsText: 'label',
+                                           optionsCaption: 'Select an Option', value: gender"></select>
+                    </div>
+                </div>
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('b2cPhone')}">
+                        <label>Phone <span class="req">*</span></label>
+                        <input type="text" placeholder="+33 6 12 34 56 78" data-bind="value: b2cPhone, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field" data-bind="css: {'_error': hasError('nationality')}">
+                        <label>Nationality <span class="req">*</span></label>
+                        <select data-bind="options: countriesList, optionsValue: 'value', optionsText: 'label',
+                                           optionsCaption: 'Select an Option', value: nationality"></select>
+                    </div>
+                </div>
+
+                <h3 class="insead-subhead">Enter Billing Information</h3>
+                <div class="field" data-bind="css: {'_error': hasError('street1')}">
+                    <label>Street <span class="req">*</span></label>
+                    <input type="text" data-bind="value: street1, valueUpdate: 'input'"/>
+                </div>
+                <div class="field">
+                    <label>Street 2</label>
+                    <input type="text" data-bind="value: street2"/>
+                </div>
+                <div class="field-row three-col">
+                    <div class="field" data-bind="css: {'_error': hasError('city')}">
+                        <label>City <span class="req">*</span></label>
+                        <input type="text" data-bind="value: city, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field">
+                        <label>State / Province</label>
+                        <!-- ko if: hasRegions -->
+                        <select data-bind="options: regionsList, optionsValue: 'value', optionsText: 'label',
+                                           optionsCaption: 'Select an Option', value: region"></select>
+                        <!-- /ko -->
+                        <!-- ko ifnot: hasRegions -->
+                        <input type="text" data-bind="value: region"/>
+                        <!-- /ko -->
+                    </div>
+                    <div class="field">
+                        <label>Zip / Postal Code</label>
+                        <input type="text" data-bind="value: postcode"/>
+                    </div>
+                </div>
+
+                <!-- Residency declaration (shown only for Singapore legal entity,
+                     B2C, and billing country NOT in SG/FR/UAE/US) -->
+                <div class="insead-declaration" data-bind="visible: showResidencyDeclaration,
+                     css: {'_error': hasError('residencyDeclaration')}">
+                    <h3 class="insead-subhead">Declaration</h3>
+                    <p>I, the undersigned, certify that my usual place of residence is outside Singapore,
+                       and that I will be outside Singapore at the time the services are performed.</p>
+                    <p class="insead-hint">(Please tick the relevant box below)</p>
+                    <label class="insead-radio">
+                        <input type="radio" name="insead_residency" value="agree" data-bind="checked: residencyDeclaration"/>
+                        <span>I Agree</span>
+                    </label>
+                    <label class="insead-radio">
+                        <input type="radio" name="insead_residency" value="disagree" data-bind="checked: residencyDeclaration"/>
+                        <span>I Disagree</span>
+                    </label>
+                    <p class="insead-hint">Date: <span data-bind="text: today"></span></p>
+                </div>
+            </div>
+
+            <!-- ---------- Sponsored by Organisation (B2B) ---------- -->
+            <div data-bind="visible: isB2B">
+
+                <!-- Personal details (prefilled from application step) -->
+                <div class="field-row two-col">
+                    <div class="field">
+                        <label>First Name <span class="req">*</span></label>
+                        <input type="text" disabled data-bind="value: customerFirstName"/>
+                    </div>
+                    <div class="field">
+                        <label>Last Name <span class="req">*</span></label>
+                        <input type="text" disabled data-bind="value: customerLastName"/>
+                    </div>
+                </div>
+                <div class="field-row two-col">
+                    <div class="field">
+                        <label>Email Address</label>
+                        <input type="email" disabled data-bind="value: customerEmail"/>
+                    </div>
+                    <div class="field">
+                        <label>Gender <span class="req">*</span></label>
+                        <input type="text" disabled data-bind="value: gender"/>
+                    </div>
+                </div>
+                <div class="field-row two-col">
+                    <div class="field">
+                        <label>Phone <span class="req">*</span></label>
+                        <input type="text" disabled data-bind="value: customerTelephone"/>
+                    </div>
+                    <div class="field">
+                        <label>Nationality <span class="req">*</span></label>
+                        <input type="text" disabled data-bind="value: nationality"/>
+                    </div>
+                </div>
+
+                <h3 class="insead-subhead">Organisation Details</h3>
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('invoiceFirstName')}">
+                        <label>Invoice Recipient First Name <span class="req">*</span></label>
+                        <input type="text" data-bind="value: invoiceFirstName, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field" data-bind="css: {'_error': hasError('invoiceLastName')}">
+                        <label>Invoice Recipient Last Name <span class="req">*</span></label>
+                        <input type="text" data-bind="value: invoiceLastName, valueUpdate: 'input'"/>
+                    </div>
+                </div>
+
+                <div class="field" data-bind="css: {'_error': hasError('invoiceEmail')}">
+                    <label>Invoice Email <span class="req">*</span></label>
+                    <input type="email" data-bind="value: invoiceEmail, valueUpdate: 'input'"/>
+                </div>
+
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('companyLegalName')}">
+                        <label>Company Full Legal Name <span class="req">*</span></label>
+                        <input type="text" data-bind="value: companyLegalName, valueUpdate: 'input', enable: !isCompanyNameAuto()"/>
+                    </div>
+                    <div class="field" data-bind="css: {'_error': hasError('companyTradeName')}">
+                        <label>Commercial Company Name <span class="req">*</span></label>
+                        <input type="text" data-bind="value: companyTradeName, valueUpdate: 'input'"/>
+                    </div>
+                </div>
+
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('organizationType')}">
+                        <label>Organization Type <span class="req">*</span></label>
+                        <select data-bind="value: organizationType">
+                            <option value="">Select an Option</option>
+                            <!-- ko foreach: organizationTypes -->
+                            <option data-bind="value: $data, text: $data"></option>
+                            <!-- /ko -->
+                        </select>
+                    </div>
+                    <div class="field" data-bind="css: {'_error': hasError('jobIndustry')}">
+                        <label>Job Industry <span class="req">*</span></label>
+                        <select data-bind="value: jobIndustry">
+                            <option value="">Select an Option</option>
+                            <!-- ko foreach: jobIndustries -->
+                            <option data-bind="value: $data, text: $data"></option>
+                            <!-- /ko -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- France: SIRET / SIREN -->
+                <!-- ko if: isFrance -->
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('siret')}">
+                        <label>SIRET <span class="req">*</span></label>
+                        <input type="text" maxlength="14" data-bind="value: siret, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field">
+                        <label>SIREN Number</label>
+                        <input type="text" data-bind="value: siren" disabled/>
+                    </div>
+                </div>
+                <!-- /ko -->
+
+                <h3 class="insead-subhead">Postal Address</h3>
+                <div class="field-row two-col">
+                    <div class="field" data-bind="css: {'_error': hasError('companyStreet1')}">
+                        <label>Company Street <span class="req">*</span></label>
+                        <input type="text" data-bind="value: companyStreet1, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field">
+                        <label>Company Street 2</label>
+                        <input type="text" data-bind="value: companyStreet2"/>
+                    </div>
+                </div>
+                <div class="field-row three-col">
+                    <div class="field" data-bind="css: {'_error': hasError('companyCity')}">
+                        <label>Company City <span class="req">*</span></label>
+                        <input type="text" data-bind="value: companyCity, valueUpdate: 'input'"/>
+                    </div>
+                    <div class="field">
+                        <label>Company State / Province</label>
+                        <!-- ko if: hasRegions -->
+                        <select data-bind="options: regionsList, optionsValue: 'value', optionsText: 'label',
+                                           optionsCaption: 'Select an Option', value: companyState"></select>
+                        <!-- /ko -->
+                        <!-- ko ifnot: hasRegions -->
+                        <input type="text" data-bind="value: companyState"/>
+                        <!-- /ko -->
+                    </div>
+                    <div class="field">
+                        <label>Company Zip / Postal Code</label>
+                        <input type="text" data-bind="value: companyZip"/>
+                    </div>
+                </div>
+
+                <h3 class="insead-subhead">Tax &amp; Legal Information</h3>
+                <div class="field-row two-col" data-bind="foreach: dynamicFields">
+                    <div class="field" data-bind="css: {'_full': isFile, '_error': $parent.hasError('dyn_' + code)}">
+                        <label>
+                            <span data-bind="text: label"></span>
+                            <!-- ko if: required --><span class="req">*</span><!-- /ko -->
+                        </label>
+                        <!-- ko if: isFile -->
+                        <input type="file" data-bind="event: {change: function(d,e){ value(e.target.files.length ? e.target.files[0].name : ''); }}"/>
+                        <!-- /ko -->
+                        <!-- ko ifnot: isFile -->
+                        <input type="text" data-bind="value: value, valueUpdate: 'input'"/>
+                        <!-- /ko -->
+                    </div>
+                </div>
+
+                <!-- GST Declaration -->
+                <div class="insead-declaration" data-bind="visible: showGstDeclaration, css: {'_error': hasError('gstDeclaration')}">
+                    <h3 class="insead-subhead">GST Declaration</h3>
+                    <p>You are applying to a programme held in Singapore and your company is incorporated
+                       outside Singapore. Please confirm the applicable statement below.
+                       <strong>Submission is not possible without selecting one option.</strong></p>
+                    <p class="insead-hint">(Please tick the relevant box below)</p>
+                    <!-- ko foreach: gstStatements -->
+                    <label class="insead-radio _block">
+                        <input type="radio" name="insead_gst" data-bind="value: value, checked: $parent.gstDeclaration"/>
+                        <span data-bind="text: label"></span>
+                    </label>
+                    <!-- /ko -->
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="insead-actions">
+                <a class="insead-link" data-bind="attr: {href: endpointUrls.cart}">Back</a>
+                <span class="insead-actions__right">
+                    <a class="insead-link" data-bind="click: saveBilling">Save</a>
+                    <button class="insead-btn" data-bind="click: proceedToPayment, disable: isLoading()">
+                        <span data-bind="visible: !isLoading()">Proceed to payment</span>
+                        <span data-bind="visible: isLoading()">Saving…</span>
+                    </button>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- STEP 2 — PAYMENT                                              -->
+    <!-- ============================================================= -->
+    <div data-bind="visible: currentStep() === 'payment'">
+        <h2 class="insead-title">Payment</h2>
+        <div class="insead-pay-grid">
+
+            <!-- Left column -->
+            <div class="insead-pay-main">
+                <div class="insead-card">
+                    <h3 class="insead-subhead">Enter Billing Information</h3>
+                    <p class="insead-bill-summary">
+                        <strong data-bind="text: isB2B() ? companyLegalName() : (b2cFirstName() + ' ' + b2cLastName())"></strong><br/>
+                        <span data-bind="text: (isB2B() ? companyStreet1() : street1())"></span>
+                        <span data-bind="text: (isB2B() ? companyStreet2() : street2())"></span><br/>
+                        <span data-bind="text: isB2B() ? companyCity() : city()"></span>
+                    </p>
+                </div>
+
+                <div class="insead-card">
+                    <h3 class="insead-subhead">Declarations</h3>
+                    <p data-bind="visible: showResidencyDeclaration"><strong>Once the invoice has been issued, no GST letter will be accepted, and no amendments will be allowed.</strong></p>
+                    <label class="insead-radio">
+                        <input type="checkbox" data-bind="checked: acceptedTerms"/>
+                        <span>I have read and accept INSEAD Executive Education's Terms and Conditions</span>
+                    </label>
+                    <p class="insead-hint">* Please note that your bank may charge additional fees during payment process</p>
+                </div>
+            </div>
+
+            <!-- Right column -->
+            <div class="insead-pay-side">
+                <!-- Order summary -->
+                <div class="insead-card">
+                    <h3 class="insead-subhead">Order Summary</h3>
+                    <!-- ko foreach: summaryData.items -->
+                    <div class="insead-order-item">
+                        <div class="insead-order-item__name" data-bind="text: name"></div>
+                        <div class="insead-order-item__cols">
+                            <span>FEE <b data-bind="text: fee"></b></span>
+                            <span>OFFERING <b data-bind="text: offering"></b></span>
+                            <span>FINAL FEE <b data-bind="text: finalFee"></b></span>
+                        </div>
+                    </div>
+                    <!-- /ko -->
+                    <div class="insead-totals">
+                        <div class="insead-totals__row"><span>Subtotal</span><span data-bind="text: summaryData.totals.subtotal"></span></div>
+                        <div class="insead-totals__row"><span>VAT &amp; GST</span><span data-bind="text: summaryData.totals.tax"></span></div>
+                        <div class="insead-totals__row _grand"><span>Total</span><span data-bind="text: summaryData.totals.grand"></span></div>
+                    </div>
+                </div>
+
+                <!-- Payment method -->
+                <div class="insead-card">
+                    <h3 class="insead-subhead">Payment Method</h3>
+
+                    <!-- ko if: cardMethod -->
+                    <label class="insead-pay-option" data-bind="css: {'_selected': paymentChoice() === 'card'}">
+                        <input type="radio" name="insead_pay" value="card" data-bind="checked: paymentChoice"/>
+                        <span class="insead-pay-option__label"><b>Credit/Debit Card</b><br/><small>Visa, Mastercard, American Express</small></span>
+                    </label>
+                    <div class="insead-stripe-element" id="insead-stripe-card" data-bind="visible: paymentChoice() === 'card'"></div>
+                    <!-- /ko -->
+
+                    <!-- ko if: bankMethod -->
+                    <label class="insead-pay-option" data-bind="css: {'_selected': paymentChoice() === 'bank'}">
+                        <input type="radio" name="insead_pay" value="bank" data-bind="checked: paymentChoice"/>
+                        <span class="insead-pay-option__label"><b>Bank Transfer</b><br/><small>Direct bank transfer payment</small></span>
+                    </label>
+                    <div class="insead-stripe-element" id="insead-stripe-bank" data-bind="visible: paymentChoice() === 'bank'"></div>
+                    <!-- /ko -->
+
+                    <!-- ko ifnot: cardMethod || bankMethod -->
+                    <p class="insead-hint">No payment methods are currently available for this cart.</p>
+                    <!-- /ko -->
+
+                    <button class="insead-btn _pay" data-bind="click: placeOrder, disable: !canPay()">
+                        <span data-bind="visible: !isLoading()">🔒 Pay Now Securely <span data-bind="text: summaryData.totals.grand"></span></span>
+                        <span data-bind="visible: isLoading()">Processing…</span>
+                    </button>
+                    <p class="insead-hint _center">🔒 Secure 256-bit SSL encrypted payment</p>
+                    <a class="insead-link _center" data-bind="click: backToBilling">← Back to Billing</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

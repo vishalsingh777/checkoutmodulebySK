@@ -1,0 +1,38 @@
+<?php
+/** @var \Insead\CustomCheckout\Block\Summary $block */
+$items = $block->getItems();
+$totals = $block->getTotals();
+?>
+<?php if (!empty($items)): ?>
+<div class="insead-summary">
+    <div class="insead-summary__card">
+        <h3 class="insead-summary__title">
+            <?= $block->escapeHtml(__('Order summary')) ?>
+            <span class="insead-summary__count"><?= (int) $block->getItemCount() ?></span>
+        </h3>
+
+        <ul class="insead-summary__items">
+            <?php foreach ($items as $item): ?>
+                <li class="insead-summary__item">
+                    <span class="insead-summary__thumb">
+                        <img src="<?= $block->escapeUrl($item['image']) ?>"
+                             alt="<?= $block->escapeHtmlAttr($item['name']) ?>" width="48" height="48"/>
+                        <span class="insead-summary__qty"><?= (int) $item['qty'] ?></span>
+                    </span>
+                    <span class="insead-summary__name"><?= $block->escapeHtml($item['name']) ?></span>
+                    <span class="insead-summary__price"><?= /* @noEscape */ $item['rowTotal'] ?></span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+
+        <div class="insead-summary__totals">
+            <?php foreach ($totals as $row): ?>
+                <div class="insead-summary__total-row <?= $row['strong'] ? '_grand' : '' ?>">
+                    <span><?= $block->escapeHtml($row['label']) ?></span>
+                    <span><?= /* @noEscape */ $row['value'] ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>

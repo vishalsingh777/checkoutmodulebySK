@@ -1,0 +1,19 @@
+<?php
+/** @var \Insead\CustomCheckout\Block\Adminhtml\OrderInfo $block */
+$rows = $block->getInfo();
+?>
+<?php if (!empty($rows)): ?>
+    <section class="admin__page-section insead-einvoicing-info">
+        <div class="admin__page-section-title">
+            <span class="title"><?= $block->escapeHtml(__('Financing & E-Invoicing Details')) ?></span>
+        </div>
+        <table class="admin__table-secondary">
+            <?php foreach ($rows as $row): ?>
+                <tr>
+                    <th><?= $block->escapeHtml($row['label']) ?></th>
+                    <td><?= $block->escapeHtml($row['value']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </table>
+    </section>
+<?php endif; ?>

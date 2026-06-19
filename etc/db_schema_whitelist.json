@@ -1,0 +1,62 @@
+{
+    "quote": {
+        "column": {
+            "gender": true,
+            "nationality": true,
+            "job_industry": true,
+            "financing_profile": true,
+            "tax_registration_status": true,
+            "company_legal_name": true,
+            "commercial_company_name": true,
+            "organization_type": true,
+            "sector_of_activity": true,
+            "uen": true,
+            "vat_intracommunity": true,
+            "vat_uae": true,
+            "gst_number": true,
+            "tax_id_number": true,
+            "certificate_id": true,
+            "duns_number": true,
+            "routing_address": true,
+            "tax_exempt_file": true,
+            "invoice_recipient_firstname": true,
+            "invoice_recipient_lastname": true,
+            "invoice_email": true,
+            "reg_type_label": true,
+            "reg_type_value": true,
+            "credit_consumption_code": true,
+            "gst_declaration": true,
+            "residency_declaration": true
+        }
+    },
+    "sales_order": {
+        "column": {
+            "gender": true,
+            "nationality": true,
+            "job_industry": true,
+            "financing_profile": true,
+            "tax_registration_status": true,
+            "company_legal_name": true,
+            "commercial_company_name": true,
+            "organization_type": true,
+            "sector_of_activity": true,
+            "uen": true,
+            "vat_intracommunity": true,
+            "vat_uae": true,
+            "gst_number": true,
+            "tax_id_number": true,
+            "certificate_id": true,
+            "duns_number": true,
+            "routing_address": true,
+            "tax_exempt_file": true,
+            "invoice_recipient_firstname": true,
+            "invoice_recipient_lastname": true,
+            "invoice_email": true,
+            "reg_type_label": true,
+            "reg_type_value": true,
+            "credit_consumption_code": true,
+            "gst_declaration": true,
+            "residency_declaration": true
+        }
+    }
+}

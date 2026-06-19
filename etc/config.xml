@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <checkout>
+            <insead_customcheckout>
+                <!-- Off by default; enable per website / store view as needed. -->
+                <enabled>0</enabled>
+                <!-- GST Declaration applies to programmes held in Singapore. -->
+                <programme_in_singapore>1</programme_in_singapore>
+            </insead_customcheckout>
+        </checkout>
+    </default>
+</config>

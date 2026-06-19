@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <!-- Adds a group under Stores > Configuration > Sales > Checkout -->
+        <section id="checkout">
+            <group id="insead_customcheckout" translate="label" type="text" sortOrder="1000"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>INSEAD Custom Checkout</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable Custom Checkout Step</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the INSEAD financing / billing / tax step in checkout. Configurable per website / store view.</comment>
+                </field>
+                <field id="programme_in_singapore" translate="label comment" type="select" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Programme Held in Singapore</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Controls the GST Declaration block: shown for non-Singapore, non-EU companies only when the programme is held in Singapore.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

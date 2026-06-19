@@ -1,0 +1,292 @@
+/* INSEAD Custom Checkout — standalone two-step page styling. */
+
+:root {
+    --insead-green: #00634e;
+    --insead-green-text: #1f8a5b;
+    --insead-yellow: #f6d100;
+    --insead-border: #d9dde1;
+    --insead-text: #2b2f33;
+    --insead-muted: #6b7177;
+    --insead-error: #d0021b;
+    --insead-bg: #f3f4f6;
+}
+
+.insead-checkout {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+    color: var(--insead-text);
+    font-size: 15px;
+}
+
+/* ---------- Stepper ---------- */
+.insead-stepper {
+    display: flex;
+    list-style: none;
+    margin: 0 0 28px;
+    padding: 0;
+    gap: 8px;
+}
+.insead-stepper__step {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--insead-muted);
+    font-weight: 600;
+    font-size: 14px;
+    position: relative;
+}
+.insead-stepper__step:not(:last-child)::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--insead-border);
+    margin-left: 8px;
+}
+.insead-stepper__num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #c8ccd0;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex: 0 0 auto;
+}
+.insead-stepper__step._done .insead-stepper__num,
+.insead-stepper__step._active .insead-stepper__num {
+    background: var(--insead-green);
+}
+.insead-stepper__step._active,
+.insead-stepper__step._done {
+    color: var(--insead-text);
+}
+
+/* ---------- Cards ---------- */
+.insead-card {
+    background: #fff;
+    border: 1px solid var(--insead-border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+.insead-title {
+    color: var(--insead-green-text);
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+.insead-subhead {
+    color: var(--insead-green);
+    font-size: 16px;
+    font-weight: 700;
+    margin: 22px 0 14px;
+}
+.insead-subhead:first-child { margin-top: 0; }
+
+/* ---------- Selector box ---------- */
+.insead-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    background: #eef6f2;
+    border: 1px solid #cfe6db;
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 24px;
+}
+
+/* ---------- Fields ---------- */
+.field { margin-bottom: 16px; }
+.field label {
+    display: block;
+    font-size: 13px;
+    color: var(--insead-muted);
+    margin-bottom: 6px;
+}
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="file"],
+.field select {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--insead-border);
+    border-radius: 6px;
+    padding: 11px 12px;
+    font-size: 15px;
+    background: #fff;
+    color: var(--insead-text);
+}
+.field input:focus,
+.field select:focus {
+    outline: none;
+    border-color: var(--insead-green);
+    box-shadow: 0 0 0 2px rgba(0, 99, 78, .15);
+}
+.field._error input,
+.field._error select { border-color: var(--insead-error); }
+.field._full { grid-column: 1 / -1; }
+.req { color: var(--insead-error); }
+
+.field-row { display: grid; gap: 18px; }
+.field-row.two-col { grid-template-columns: 1fr 1fr; }
+.field-row.three-col { grid-template-columns: 1fr 1fr 1fr; }
+
+.insead-hint {
+    font-size: 12px;
+    color: var(--insead-muted);
+    margin: 6px 0;
+}
+.insead-hint._center { text-align: center; }
+
+/* ---------- Declarations / radios ---------- */
+.insead-declaration {
+    border: 1px solid var(--insead-border);
+    border-radius: 8px;
+    padding: 18px;
+    margin-top: 18px;
+}
+.insead-declaration._error { border-color: var(--insead-error); }
+.insead-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 8px 0;
+    cursor: pointer;
+    font-size: 14px;
+}
+.insead-radio._block { align-items: flex-start; }
+/*
+ * Force native radio/checkbox controls to render. The Insead/learninghub theme
+ * hides native inputs and draws custom controls for its own markup structure,
+ * which would otherwise leave our declaration options as plain text.
+ */
+.insead-checkout .insead-radio input[type="radio"],
+.insead-checkout .insead-radio input[type="checkbox"] {
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    appearance: auto;
+    position: static;
+    opacity: 1;
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    margin: 2px 0 0;
+    padding: 0;
+    clip: auto;
+    pointer-events: auto;
+    accent-color: var(--insead-green);
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+/* Neutralise any theme-drawn pseudo control on our labels. */
+.insead-checkout .insead-radio::before,
+.insead-checkout .insead-radio::after { content: none !important; }
+
+/* ---------- Actions ---------- */
+.insead-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 26px;
+}
+.insead-actions__right { display: flex; align-items: center; gap: 22px; }
+.insead-link {
+    color: #1976d2;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+}
+.insead-link._center { display: block; text-align: center; margin-top: 12px; }
+.insead-btn {
+    background: var(--insead-yellow);
+    color: #1a1a1a;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.insead-btn:hover { filter: brightness(.97); }
+.insead-btn[disabled] { opacity: .6; cursor: not-allowed; }
+.insead-btn._ghost {
+    background: #eef0f2;
+    color: var(--insead-text);
+    border-radius: 8px;
+    padding: 11px 22px;
+}
+.insead-btn._pay {
+    width: 100%;
+    margin-top: 16px;
+    padding: 15px;
+    font-size: 16px;
+}
+
+/* ---------- Alert ---------- */
+.insead-alert {
+    background: #fdecea;
+    border: 1px solid #f5c6cb;
+    color: var(--insead-error);
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 18px;
+    font-size: 14px;
+}
+
+/* ---------- Payment step ---------- */
+.insead-pay-grid {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 24px;
+    align-items: start;
+}
+.insead-bill-summary { line-height: 1.6; }
+
+.insead-credit { display: flex; gap: 12px; }
+.insead-credit input { flex: 1; border: 1px solid var(--insead-border); border-radius: 24px; padding: 11px 16px; }
+
+.insead-order-item { border-bottom: 1px solid var(--insead-border); padding-bottom: 14px; margin-bottom: 14px; }
+.insead-order-item__name { font-weight: 700; margin-bottom: 8px; }
+.insead-order-item__cols { display: flex; justify-content: space-between; font-size: 12px; color: var(--insead-muted); }
+.insead-order-item__cols b { display: block; color: var(--insead-text); font-size: 14px; margin-top: 2px; }
+
+.insead-totals__row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+.insead-totals__row._grand {
+    border-top: 1px solid var(--insead-border);
+    margin-top: 8px;
+    padding-top: 12px;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.insead-pay-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--insead-border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+}
+.insead-pay-option._selected { border-color: var(--insead-green); box-shadow: 0 0 0 1px var(--insead-green); }
+.insead-pay-option__label small { color: var(--insead-muted); }
+
+.insead-stripe-element {
+    border: 1px solid var(--insead-border);
+    border-radius: 8px;
+    padding: 14px;
+    margin: 0 0 12px;
+}
+
+@media (max-width: 900px) {
+    .insead-selector,
+    .field-row.two-col,
+    .field-row.three-col,
+    .insead-pay-grid { grid-template-columns: 1fr; }
+    .insead-stepper__step { font-size: 12px; }
+}

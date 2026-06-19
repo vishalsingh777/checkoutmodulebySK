@@ -1,0 +1,27 @@
+<?php
+/** @var \Insead\CustomCheckout\Block\Checkout $block */
+?>
+<div id="insead-custom-checkout" class="insead-checkout-wrapper" data-bind="scope: 'inseadCheckout'">
+    <!-- ko template: getTemplate() --><!-- /ko -->
+</div>
+
+<script>
+    // Native checkout (checkout.root) is removed on this page, so window.checkoutConfig
+    // is absent. Provide the minimum the reused Magento checkout JS models need
+    // (url-builder reads storeCode for the Stripe get-requires-action REST call).
+    window.checkoutConfig = window.checkoutConfig || {
+        storeCode: <?= /* @noEscape */ json_encode($block->getStoreCode()) ?>
+    };
+</script>
+
+<script type="text/x-magento-init">
+{
+    "#insead-custom-checkout": {
+        "Magento_Ui/js/core/app": {
+            "components": {
+                "inseadCheckout": <?= /* @noEscape */ $block->getJsonConfig() ?>
+            }
+        }
+    }
+}
+</script>

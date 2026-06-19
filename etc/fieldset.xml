@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<!--
+    Copy the custom e-invoicing / financing fields from the quote onto the
+    order when the quote is converted (order placement).
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:DataObject/etc/fieldset.xsd">
+    <scope id="global">
+        <fieldset id="sales_convert_quote">
+            <field name="financing_profile">
+                <aspect name="to_order"/>
+            </field>
+            <field name="tax_registration_status">
+                <aspect name="to_order"/>
+            </field>
+            <field name="company_legal_name">
+                <aspect name="to_order"/>
+            </field>
+            <field name="commercial_company_name">
+                <aspect name="to_order"/>
+            </field>
+            <field name="organization_type">
+                <aspect name="to_order"/>
+            </field>
+            <field name="sector_of_activity">
+                <aspect name="to_order"/>
+            </field>
+            <field name="uen">
+                <aspect name="to_order"/>
+            </field>
+            <field name="vat_intracommunity">
+                <aspect name="to_order"/>
+            </field>
+            <field name="vat_uae">
+                <aspect name="to_order"/>
+            </field>
+            <field name="gst_number">
+                <aspect name="to_order"/>
+            </field>
+            <field name="tax_id_number">
+                <aspect name="to_order"/>
+            </field>
+            <field name="certificate_id">
+                <aspect name="to_order"/>
+            </field>
+            <field name="duns_number">
+                <aspect name="to_order"/>
+            </field>
+            <field name="routing_address">
+                <aspect name="to_order"/>
+            </field>
+            <field name="tax_exempt_file">
+                <aspect name="to_order"/>
+            </field>
+            <field name="invoice_recipient_firstname">
+                <aspect name="to_order"/>
+            </field>
+            <field name="invoice_recipient_lastname">
+                <aspect name="to_order"/>
+            </field>
+            <field name="invoice_email">
+                <aspect name="to_order"/>
+            </field>
+            <field name="reg_type_label">
+                <aspect name="to_order"/>
+            </field>
+            <field name="reg_type_value">
+                <aspect name="to_order"/>
+            </field>
+            <field name="gender">
+                <aspect name="to_order"/>
+            </field>
+            <field name="nationality">
+                <aspect name="to_order"/>
+            </field>
+            <field name="po_number">
+                <aspect name="to_order"/>
+            </field>
+            <field name="job_industry">
+                <aspect name="to_order"/>
+            </field>
+            <field name="credit_consumption_code">
+                <aspect name="to_order"/>
+            </field>
+            <field name="gst_declaration">
+                <aspect name="to_order"/>
+            </field>
+            <field name="residency_declaration">
+                <aspect name="to_order"/>
+            </field>
+        </fieldset>
+    </scope>
+</config>

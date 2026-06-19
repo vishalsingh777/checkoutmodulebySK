@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!--
+    Full takeover of /checkout: the native Magento KO checkout (checkout.root)
+    is removed and replaced by the INSEAD standalone two-step page
+    (Billing Information + Payment). The page's view-model is
+    Insead_CustomCheckout/js/view/checkout/billing-form, bootstrapped from
+    Block\Checkout::getJsonConfig() inside templates/checkout/billing-form.phtml.
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Insead_CustomCheckout::css/checkout-custom.css"/>
+    </head>
+    <body>
+        <!-- Drop the native checkout app entirely. -->
+        <referenceBlock name="checkout.root" remove="true"/>
+
+        <referenceContainer name="content">
+            <block name="insead.custom.checkout"
+                   class="Insead\CustomCheckout\Block\Checkout"
+                   template="Insead_CustomCheckout::checkout/billing-form.phtml"
+                   cacheable="false"/>
+        </referenceContainer>
+    </body>
+</page>
