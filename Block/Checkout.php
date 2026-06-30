@@ -254,8 +254,6 @@ class Checkout extends Template
                 'country_id' => $val($b->getCountryId() ?: $quote->getData('quote_country')),
                 'company'    => $val($b->getCompany()),
                 'vat_id'     => $val($b->getVatId()),
-                'gender'     => $val($quote->getData('gender')),
-                'nationality' => $val($quote->getData('nationality')),
                 // Profile: Ewave sets is_btob on the quote.
                 'is_btob'    => (int) $quote->getData('is_btob'),
                 // Custom INSEAD columns (may already be filled by a prior save).

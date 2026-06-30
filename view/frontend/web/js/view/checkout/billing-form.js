@@ -40,17 +40,6 @@ define([
         exempt: $t('Tax Exempt')
     };
 
-    // Gender options for the Self-funded customer-information section.
-    var genderOptions = [
-        {value: 'male', label: $t('Male')},
-        {value: 'female', label: $t('Female')},
-        {value: 'nonbinary', label: $t('Non binary')},
-        {value: 'prefer_not', label: $t('Prefer not to answer')}
-    ];
-
-    // Countries excluded from the Self-funded residency declaration.
-    var residencyExcluded = ['SG', 'FR', 'AE', 'US'];
-
     // Region cache keyed by ISO country code (avoids repeat directory calls).
     var regionCache = {};
 
@@ -145,7 +134,6 @@ define([
             this.organizationTypes = organizationTypes;
             this.jobIndustries = jobIndustries;
             this.gstStatements = gstStatements;
-            this.genderOptions = genderOptions;
             this.today = new Date().toLocaleDateString();
             this._initObservables();
             this._initComputed();
@@ -185,15 +173,7 @@ define([
             );
             this.taxStatusList = ko.observableArray([]);
 
-            // ---- B2C (Self-funded) — customer information ----
-            this.b2cFirstName = ko.observable(pf.firstname || customer.firstname || '');
-            this.b2cLastName = ko.observable(pf.lastname || customer.lastname || '');
-            this.b2cEmail = ko.observable(pf.email || customer.email || '');
-            this.gender = ko.observable(pf.gender || '');
-            this.b2cPhone = ko.observable(pf.telephone || '');
-            this.nationality = ko.observable(pf.nationality || pf.country_id || '');
-
-            // ---- B2C (Self-funded) — billing address ----
+            // ---- B2C (Self-funded) ----
             this.street1 = ko.observable(pf.street1 || '');
             this.street2 = ko.observable(pf.street2 || '');
             this.city = ko.observable(pf.city || '');
@@ -244,6 +224,8 @@ define([
 
             // ---- Step 2: payment ----
             this.currentStep = ko.observable('billing'); // 'billing' | 'payment'
+            this.creditCode = ko.observable('');
+            this.creditApplied = ko.observable(false);
             this.acceptedTerms = ko.observable(false);
             this.paymentChoice = ko.observable(''); // 'card' | 'bank'
 
@@ -270,12 +252,6 @@ define([
             // GST Declaration: programme in Singapore AND company is Rest-of-World.
             this.showGstDeclaration = ko.computed(function () {
                 return self.isB2B() && self.programmeIsSingapore && self.countryGroup() === 'ROW';
-            });
-            // Self-funded residency Declaration: Singapore legal entity AND B2C AND
-            // billing country NOT in SG/FR/UAE/US.
-            this.showResidencyDeclaration = ko.computed(function () {
-                return self.isB2C() && self.programmeIsSingapore
-                    && residencyExcluded.indexOf(self.country()) === -1;
             });
             this.cardMethod = this.paymentConfig.card || null;
             this.bankMethod = this.paymentConfig.bank || null;
@@ -393,17 +369,9 @@ define([
             if (!this.country()) { errs.country = true; }
 
             if (this.isB2C()) {
-                if (!this.b2cFirstName()) { errs.b2cFirstName = true; }
-                if (!this.b2cLastName()) { errs.b2cLastName = true; }
-                if (this.b2cEmail() && !emailRe.test(this.b2cEmail())) { errs.b2cEmail = true; }
-                if (!this.gender()) { errs.gender = true; }
-                if (!this.b2cPhone()) { errs.b2cPhone = true; }
-                if (!this.nationality()) { errs.nationality = true; }
                 if (!this.street1()) { errs.street1 = true; }
                 if (!this.city()) { errs.city = true; }
-                if (this.showResidencyDeclaration() && !this.residencyDeclaration()) {
-                    errs.residencyDeclaration = true;
-                }
+                if (!this.residencyDeclaration()) { errs.residencyDeclaration = true; }
             } else {
                 if (!this.invoiceFirstName()) { errs.invoiceFirstName = true; }
                 if (!this.invoiceLastName()) { errs.invoiceLastName = true; }
@@ -435,18 +403,16 @@ define([
             };
 
             if (this.isB2C()) {
-                data.firstname = this.b2cFirstName();
-                data.lastname = this.b2cLastName();
-                data.email = this.b2cEmail();
-                data.telephone = this.b2cPhone();
-                data.gender = this.gender();
-                data.nationality = this.nationality();
+                data.firstname = this.customerFirstName;
+                data.lastname = this.customerLastName;
+                data.email = this.customerEmail;
+                data.telephone = this.customerTelephone;
                 data.street1 = this.street1();
                 data.street2 = this.street2();
                 data.city = this.city();
                 data.region = this.region();
                 data.postcode = this.postcode();
-                data.residency_declaration = this.showResidencyDeclaration() ? this.residencyDeclaration() : '';
+                data.residency_declaration = this.residencyDeclaration();
             } else {
                 // Billing address contact = invoice recipient.
                 data.firstname = this.invoiceFirstName();
@@ -482,6 +448,7 @@ define([
                 });
             }
 
+            data.credit_consumption_code = this.creditCode();
             return data;
         },
 
@@ -527,6 +494,12 @@ define([
         backToBilling: function () {
             this.currentStep('billing');
             this.globalError('');
+        },
+
+        verifyCreditCode: function () {
+            // Lightweight client-side acknowledgement; the code is persisted with
+            // the billing payload (credit_consumption_code) for back-office review.
+            this.creditApplied(!!this.creditCode());
         },
 
         // ---- Stripe payment -------------------------------------------------
@@ -584,10 +557,10 @@ define([
         _billingDetails: function () {
             var name = this.isB2B()
                 ? (this.invoiceFirstName() + ' ' + this.invoiceLastName())
-                : (this.b2cFirstName() + ' ' + this.b2cLastName());
+                : (this.customerFirstName + ' ' + this.customerLastName);
             return {
                 name: name.trim(),
-                email: this.isB2B() ? this.invoiceEmail() : this.b2cEmail(),
+                email: this.isB2B() ? this.invoiceEmail() : this.customerEmail,
                 address: {
                     line1: this.isB2B() ? this.companyStreet1() : this.street1(),
                     line2: this.isB2B() ? this.companyStreet2() : this.street2(),
