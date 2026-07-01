@@ -5,6 +5,13 @@
     (Billing Information + Payment). The page's view-model is
     Insead_CustomCheckout/js/view/checkout/billing-form, bootstrapped from
     Block\Checkout::getJsonConfig() inside templates/checkout/billing-form.phtml.
+
+    This layout update only applies when the insead_customcheckout_enabled
+    handle is added by Observer\AddCustomCheckoutLayoutHandle (gated on
+    Stores > Configuration > INSEAD > Checkout > INSEAD Custom Checkout >
+    Enable Custom Checkout Step for the current store view).
+    checkout_index_index.xml itself carries no override, so a store/website
+    with the setting off renders the untouched native checkout.
 -->
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">

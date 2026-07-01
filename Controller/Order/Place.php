@@ -13,6 +13,8 @@ use Magento\Framework\Data\Form\FormKey\Validator as FormKeyValidator;
 use Magento\Framework\UrlInterface;
 use Magento\Checkout\Model\Session as CheckoutSession;
 use Magento\Quote\Api\CartManagementInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
+use Insead\CustomCheckout\Model\MgOrganizationWriter;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -29,6 +31,8 @@ class Place implements HttpPostActionInterface, CsrfAwareActionInterface
         private readonly FormKeyValidator $formKeyValidator,
         private readonly CheckoutSession $checkoutSession,
         private readonly CartManagementInterface $cartManagement,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly MgOrganizationWriter $mgOrganizationWriter,
         private readonly UrlInterface $url,
         private readonly LoggerInterface $logger
     ) {
@@ -78,6 +82,14 @@ class Place implements HttpPostActionInterface, CsrfAwareActionInterface
             $quote->collectTotals()->save();
 
             $orderId = $this->cartManagement->placeOrder($quote->getId());
+
+            try {
+                $this->mgOrganizationWriter->saveFromOrder($this->orderRepository->get($orderId));
+            } catch (\Throwable $e) {
+                // Non-fatal: the order itself is already placed; the flat-table
+                // export feeds the BI warehouse and can be backfilled separately.
+                $this->logger->error('INSEAD mg_organization export: ' . $e->getMessage());
+            }
 
             $this->checkoutSession->setLastQuoteId($quote->getId())
                 ->setLastSuccessQuoteId($quote->getId())

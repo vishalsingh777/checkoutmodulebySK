@@ -18,10 +18,11 @@
         <column xsi:type="varchar" name="company_legal_name" nullable="true" length="255" comment="Company Full Legal Name"/>
         <column xsi:type="varchar" name="commercial_company_name" nullable="true" length="255" comment="Commercial Company Name"/>
         <column xsi:type="varchar" name="organization_type" nullable="true" length="100" comment="Organization Type"/>
-        <column xsi:type="varchar" name="sector_of_activity" nullable="true" length="100" comment="Sector of Activity"/>
         <column xsi:type="varchar" name="uen" nullable="true" length="50" comment="UEN/Business Reg Number"/>
         <column xsi:type="varchar" name="vat_intracommunity" nullable="true" length="50" comment="VAT Intracommunity Number"/>
         <column xsi:type="varchar" name="vat_uae" nullable="true" length="50" comment="UAE VAT Number"/>
+        <column xsi:type="varchar" name="trn" nullable="true" length="50" comment="UAE Tax Registration Number (TRN)"/>
+        <column xsi:type="varchar" name="ein" nullable="true" length="50" comment="US Employer Identification Number (EIN)"/>
         <column xsi:type="varchar" name="gst_number" nullable="true" length="50" comment="Singapore GST Number"/>
         <column xsi:type="varchar" name="tax_id_number" nullable="true" length="50" comment="Tax ID Number"/>
         <column xsi:type="varchar" name="certificate_id" nullable="true" length="50" comment="Certificate ID"/>
@@ -46,10 +47,11 @@
         <column xsi:type="varchar" name="company_legal_name" nullable="true" length="255" comment="Company Full Legal Name"/>
         <column xsi:type="varchar" name="commercial_company_name" nullable="true" length="255" comment="Commercial Company Name"/>
         <column xsi:type="varchar" name="organization_type" nullable="true" length="100" comment="Organization Type"/>
-        <column xsi:type="varchar" name="sector_of_activity" nullable="true" length="100" comment="Sector of Activity"/>
         <column xsi:type="varchar" name="uen" nullable="true" length="50" comment="UEN/Business Reg Number"/>
         <column xsi:type="varchar" name="vat_intracommunity" nullable="true" length="50" comment="VAT Intracommunity Number"/>
         <column xsi:type="varchar" name="vat_uae" nullable="true" length="50" comment="UAE VAT Number"/>
+        <column xsi:type="varchar" name="trn" nullable="true" length="50" comment="UAE Tax Registration Number (TRN)"/>
+        <column xsi:type="varchar" name="ein" nullable="true" length="50" comment="US Employer Identification Number (EIN)"/>
         <column xsi:type="varchar" name="gst_number" nullable="true" length="50" comment="Singapore GST Number"/>
         <column xsi:type="varchar" name="tax_id_number" nullable="true" length="50" comment="Tax ID Number"/>
         <column xsi:type="varchar" name="certificate_id" nullable="true" length="50" comment="Certificate ID"/>
@@ -64,5 +66,94 @@
         <column xsi:type="varchar" name="credit_consumption_code" nullable="true" length="100" comment="Credit Consumption Code"/>
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
+    </table>
+    <table name="insead_mg_organization" resource="default" engine="innodb" comment="Flat organization export table, mirrors BI bronze.mg_organization. One row per customer_id (guests are not written).">
+        <column xsi:type="int" name="organization_system_id" nullable="false" unsigned="true" comment="Magento customer_id (customer_entity.entity_id). Guest orders are never written here."/>
+        <column xsi:type="varchar" name="orgid_ps" nullable="true" length="50" comment="PeopleSoft Org ID"/>
+        <column xsi:type="varchar" name="organization_legal_name" nullable="true" length="360" comment="Organization Legal Name"/>
+        <column xsi:type="varchar" name="business_registration_number" nullable="true" length="40" comment="Business Registration Number (SIREN/UEN)"/>
+        <column xsi:type="varchar" name="tax_registration_number" nullable="true" length="40" comment="Tax Registration Number (VAT)"/>
+        <column xsi:type="varchar" name="tax_registration_country" nullable="true" length="40" comment="Tax Registration Country"/>
+        <column xsi:type="varchar" name="tax_registration_status" nullable="true" length="40" comment="Tax Registration Status"/>
+        <column xsi:type="varchar" name="tax_exemption_letter_yn" nullable="true" length="1" comment="Tax Exemption Letter Y/N"/>
+        <column xsi:type="varchar" name="duns_number" nullable="true" length="40" comment="DUNS Number"/>
+        <column xsi:type="varchar" name="certification_number" nullable="true" length="40" comment="Certification Number"/>
+        <column xsi:type="varchar" name="tax_member_group" nullable="true" length="40" comment="Tax Member Group"/>
+        <column xsi:type="varchar" name="sic_code" nullable="true" length="30" comment="SIC Code"/>
+        <column xsi:type="varchar" name="gender" nullable="true" length="32" disabled="true"/>
+        <column xsi:type="varchar" name="nationality" nullable="true" length="2" disabled="true"/>
+        <column xsi:type="datetime" name="effective_from_date" nullable="true" comment="Effective From Date"/>
+        <column xsi:type="datetime" name="effective_to_date" nullable="true" comment="Effective To Date"/>
+        <column xsi:type="varchar" name="status" nullable="true" length="1" comment="Status"/>
+        <column xsi:type="datetime" name="creation_date" nullable="false" comment="Creation Date"/>
+        <column xsi:type="datetime" name="last_update_date" nullable="true" comment="Last Update Date"/>
+        <column xsi:type="varchar" name="tracking_id" nullable="true" length="100" comment="Tracking ID"/>
+        <column xsi:type="timestamp" name="insert_date" nullable="false" default="CURRENT_TIMESTAMP" comment="Insert Date"/>
+        <column xsi:type="datetime" name="update_date" nullable="true" comment="Update Date"/>
+        <column xsi:type="datetime" name="batch_date" nullable="true" comment="Batch Date"/>
+        <constraint xsi:type="primary" referenceId="PK_INSEAD_MG_ORGANIZATION">
+            <column name="organization_system_id"/>
+        </constraint>
+        <index referenceId="IDX_INSEAD_MG_ORGANIZATION_NUMBERS" indexType="btree">
+            <column name="tax_registration_number"/>
+            <column name="business_registration_number"/>
+            <column name="certification_number"/>
+            <column name="duns_number"/>
+        </index>
+    </table>
+
+    <!--
+        Saved company billing address(es) for B2B (Sponsored) reuse. Keyed to the
+        company master (insead_mg_organization.organization_system_id). is_default=1
+        marks the row that pre-fills the checkout form next time. This is OUR saved
+        record for reuse — separate from Magento's per-order quote_address.
+    -->
+    <table name="insead_company_address" resource="default" engine="innodb" comment="Saved company billing address for B2B reuse">
+        <column xsi:type="int" name="address_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Primary key"/>
+        <column xsi:type="int" name="organization_system_id" padding="10" unsigned="true" nullable="false" comment="Company id (insead_mg_organization.organization_system_id)"/>
+        <column xsi:type="smallint" name="is_default" padding="5" unsigned="true" nullable="false" default="0" comment="1 = default address used to prefill the form"/>
+        <column xsi:type="varchar" name="firstname" nullable="true" length="100" comment="Invoice recipient first name"/>
+        <column xsi:type="varchar" name="lastname" nullable="true" length="100" comment="Invoice recipient last name"/>
+        <column xsi:type="varchar" name="email" nullable="true" length="255" comment="Invoice email"/>
+        <column xsi:type="varchar" name="company" nullable="true" length="255" comment="Company legal name"/>
+        <column xsi:type="varchar" name="street1" nullable="true" length="255" comment="Company street 1"/>
+        <column xsi:type="varchar" name="street2" nullable="true" length="255" comment="Company street 2"/>
+        <column xsi:type="varchar" name="city" nullable="true" length="100" comment="Company city"/>
+        <column xsi:type="varchar" name="region" nullable="true" length="100" comment="Company state/province"/>
+        <column xsi:type="varchar" name="postcode" nullable="true" length="30" comment="Company zip/postal code"/>
+        <column xsi:type="varchar" name="country_id" nullable="true" length="4" comment="Company country ISO code"/>
+        <column xsi:type="varchar" name="telephone" nullable="true" length="50" comment="Company phone"/>
+        <column xsi:type="varchar" name="vat_id" nullable="true" length="50" comment="VAT / registration number"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created at"/>
+        <column xsi:type="timestamp" name="updated_at" nullable="false" default="CURRENT_TIMESTAMP" on_update="true" comment="Updated at"/>
+        <constraint xsi:type="primary" referenceId="PK_INSEAD_COMPANY_ADDRESS">
+            <column name="address_id"/>
+        </constraint>
+        <index referenceId="IDX_INSEAD_COMPANY_ADDRESS_ORG_DEFAULT" indexType="btree">
+            <column name="organization_system_id"/>
+            <column name="is_default"/>
+        </index>
+    </table>
+
+    <!--
+        Link table: which companies a customer is associated with. Many-to-many —
+        one customer can link to several companies, one company to several
+        customers. The unique key prevents duplicate links.
+    -->
+    <table name="insead_company_customer" resource="default" engine="innodb" comment="Customer to company link">
+        <column xsi:type="int" name="link_id" padding="10" unsigned="true" nullable="false" identity="true" comment="Primary key"/>
+        <column xsi:type="int" name="customer_id" padding="10" unsigned="true" nullable="false" comment="Magento customer_entity.entity_id"/>
+        <column xsi:type="int" name="organization_system_id" padding="10" unsigned="true" nullable="false" comment="Company id (insead_mg_organization.organization_system_id)"/>
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Created at"/>
+        <constraint xsi:type="primary" referenceId="PK_INSEAD_COMPANY_CUSTOMER">
+            <column name="link_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="UNQ_INSEAD_COMPANY_CUSTOMER_PAIR">
+            <column name="customer_id"/>
+            <column name="organization_system_id"/>
+        </constraint>
+        <index referenceId="IDX_INSEAD_COMPANY_CUSTOMER_ORG" indexType="btree">
+            <column name="organization_system_id"/>
+        </index>
     </table>
 </schema>

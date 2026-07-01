@@ -9,10 +9,11 @@
             "company_legal_name": true,
             "commercial_company_name": true,
             "organization_type": true,
-            "sector_of_activity": true,
             "uen": true,
             "vat_intracommunity": true,
             "vat_uae": true,
+            "trn": true,
+            "ein": true,
             "gst_number": true,
             "tax_id_number": true,
             "certificate_id": true,
@@ -39,10 +40,11 @@
             "company_legal_name": true,
             "commercial_company_name": true,
             "organization_type": true,
-            "sector_of_activity": true,
             "uen": true,
             "vat_intracommunity": true,
             "vat_uae": true,
+            "trn": true,
+            "ein": true,
             "gst_number": true,
             "tax_id_number": true,
             "certificate_id": true,
@@ -57,6 +59,79 @@
             "credit_consumption_code": true,
             "gst_declaration": true,
             "residency_declaration": true
+        }
+    },
+    "insead_mg_organization": {
+        "column": {
+            "organization_system_id": true,
+            "orgid_ps": true,
+            "organization_legal_name": true,
+            "business_registration_number": true,
+            "tax_registration_number": true,
+            "tax_registration_country": true,
+            "tax_registration_status": true,
+            "tax_exemption_letter_yn": true,
+            "duns_number": true,
+            "certification_number": true,
+            "tax_member_group": true,
+            "sic_code": true,
+            "effective_from_date": true,
+            "effective_to_date": true,
+            "status": true,
+            "creation_date": true,
+            "last_update_date": true,
+            "tracking_id": true,
+            "insert_date": true,
+            "update_date": true,
+            "batch_date": true
+        },
+        "constraint": {
+            "PK_INSEAD_MG_ORGANIZATION": true
+        },
+        "index": {
+            "IDX_INSEAD_MG_ORGANIZATION_NUMBERS": true
+        }
+    },
+    "insead_company_address": {
+        "column": {
+            "address_id": true,
+            "organization_system_id": true,
+            "is_default": true,
+            "firstname": true,
+            "lastname": true,
+            "email": true,
+            "company": true,
+            "street1": true,
+            "street2": true,
+            "city": true,
+            "region": true,
+            "postcode": true,
+            "country_id": true,
+            "telephone": true,
+            "vat_id": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "constraint": {
+            "PK_INSEAD_COMPANY_ADDRESS": true
+        },
+        "index": {
+            "IDX_INSEAD_COMPANY_ADDRESS_ORG_DEFAULT": true
+        }
+    },
+    "insead_company_customer": {
+        "column": {
+            "link_id": true,
+            "customer_id": true,
+            "organization_system_id": true,
+            "created_at": true
+        },
+        "constraint": {
+            "PK_INSEAD_COMPANY_CUSTOMER": true,
+            "UNQ_INSEAD_COMPANY_CUSTOMER_PAIR": true
+        },
+        "index": {
+            "IDX_INSEAD_COMPANY_CUSTOMER_ORG": true
         }
     }
 }

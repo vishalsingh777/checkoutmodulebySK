@@ -11,7 +11,15 @@ $rows = $block->getInfo();
             <?php foreach ($rows as $row): ?>
                 <tr>
                     <th><?= $block->escapeHtml($row['label']) ?></th>
-                    <td><?= $block->escapeHtml($row['value']) ?></td>
+                    <td>
+                        <?php if (!empty($row['url'])): ?>
+                            <a href="<?= $block->escapeUrl($row['url']) ?>" target="_blank" rel="noopener">
+                                <?= $block->escapeHtml($row['value']) ?>
+                            </a>
+                        <?php else: ?>
+                            <?= $block->escapeHtml($row['value']) ?>
+                        <?php endif; ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </table>

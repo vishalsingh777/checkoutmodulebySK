@@ -22,9 +22,6 @@
             <field name="organization_type">
                 <aspect name="to_order"/>
             </field>
-            <field name="sector_of_activity">
-                <aspect name="to_order"/>
-            </field>
             <field name="uen">
                 <aspect name="to_order"/>
             </field>
@@ -32,6 +29,12 @@
                 <aspect name="to_order"/>
             </field>
             <field name="vat_uae">
+                <aspect name="to_order"/>
+            </field>
+            <field name="trn">
+                <aspect name="to_order"/>
+            </field>
+            <field name="ein">
                 <aspect name="to_order"/>
             </field>
             <field name="gst_number">

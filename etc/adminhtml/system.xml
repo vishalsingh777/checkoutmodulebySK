@@ -2,8 +2,9 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
     <system>
-        <!-- Adds a group under Stores > Configuration > Sales > Checkout -->
-        <section id="checkout">
+        <!-- Adds a group under Stores > Configuration > INSEAD > Checkout -->
+        <section id="insead_checkout">
+            <tab>insead</tab>
             <group id="insead_customcheckout" translate="label" type="text" sortOrder="1000"
                    showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>INSEAD Custom Checkout</label>

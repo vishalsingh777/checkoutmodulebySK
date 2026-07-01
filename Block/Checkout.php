@@ -16,6 +16,8 @@ use Magento\Store\Model\ScopeInterface;
 use Magento\Framework\Pricing\PriceCurrencyInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use StripeIntegration\Payments\Model\Ui\ConfigProvider as StripeConfigProvider;
+use Insead\CustomCheckout\Model\OrganizationLookup;
+use Insead\CustomCheckout\Model\CompanyProfile;
 
 /**
  * Bootstrap configuration for the standalone INSEAD two-step checkout
@@ -43,6 +45,8 @@ class Checkout extends Template
         private readonly PriceCurrencyInterface $priceCurrency,
         private readonly StripeConfigProvider $stripeConfigProvider,
         private readonly StoreManagerInterface $storeManager,
+        private readonly OrganizationLookup $organizationLookup,
+        private readonly CompanyProfile $companyProfile,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -83,6 +87,7 @@ class Checkout extends Template
             'urls'           => [
                 'lookup'         => $this->getUrl('insead_checkout/company/lookup'),
                 'save'           => $this->getUrl('insead_checkout/billing/save'),
+                'upload'         => $this->getUrl('insead_checkout/billing/upload'),
                 'place'          => $this->getUrl('insead_checkout/order/place'),
                 'requiresAction' => $this->getUrl('stripe/payments/get_requires_action'),
                 'success'        => $this->getUrl('checkout/onepage/success'),
@@ -254,6 +259,8 @@ class Checkout extends Template
                 'country_id' => $val($b->getCountryId() ?: $quote->getData('quote_country')),
                 'company'    => $val($b->getCompany()),
                 'vat_id'     => $val($b->getVatId()),
+                'gender'     => $val($quote->getData('gender')),
+                'nationality' => $val($quote->getData('nationality')),
                 // Profile: Ewave sets is_btob on the quote.
                 'is_btob'    => (int) $quote->getData('is_btob'),
                 // Custom INSEAD columns (may already be filled by a prior save).
@@ -273,7 +280,93 @@ class Checkout extends Template
                 'certificate_id'     => $val($quote->getData('certificate_id')),
                 'duns_number'        => $val($quote->getData('duns_number')),
                 'routing_address'    => $val($quote->getData('routing_address')),
+                'tax_exempt_file'    => $val($quote->getData('tax_exempt_file')),
             ];
+
+            // Returning customer: backfill any still-empty organization/tax
+            // fields from their existing insead_mg_organization row (keyed by
+            // customer_id). Guests are never written there, so nothing to do.
+            if ($this->customerSession->isLoggedIn()) {
+                $customerId = (int) $this->customerSession->getCustomerId();
+                foreach ($this->organizationLookup->findByCustomerId($customerId) as $field => $value) {
+                    if (($data[$field] ?? '') === '') {
+                        $data[$field] = $val($value);
+                    }
+                }
+
+                // B2B: backfill the company's saved default billing address (link →
+                // insead_company_address). Only for B2B so a B2C quote's personal
+                // address is never overwritten with company data.
+                if ((int) $quote->getData('is_btob') === 1) {
+                    $companyAddress = $this->companyProfile->findDefaultAddressByCustomer($customerId);
+                    $addressMap = [
+                        'firstname'  => 'invoice_recipient_firstname',
+                        'lastname'   => 'invoice_recipient_lastname',
+                        'email'      => 'invoice_email',
+                        'company'    => 'company_legal_name',
+                        'street1'    => 'street1',
+                        'street2'    => 'street2',
+                        'city'       => 'city',
+                        'region'     => 'region',
+                        'postcode'   => 'postcode',
+                        'country_id' => 'country_id',
+                        'telephone'  => 'telephone',
+                        'vat_id'     => 'vat_id',
+                    ];
+                    foreach ($addressMap as $addrField => $prefillKey) {
+                        if (isset($companyAddress[$addrField]) && ($data[$prefillKey] ?? '') === '') {
+                            $data[$prefillKey] = $val($companyAddress[$addrField]);
+                        }
+                    }
+                }
+
+                // B2C: backfill the buyer's personal billing address from their
+                // saved Magento customer address (default billing). Only for non-B2B
+                // so a company quote is never overwritten with personal data.
+                if ((int) $quote->getData('is_btob') !== 1) {
+                    $defaultBilling = $this->customerSession->getCustomer()->getDefaultBillingAddress();
+                    if ($defaultBilling && $defaultBilling->getId()) {
+                        $cStreet = $defaultBilling->getStreet();
+                        $cStreet = is_array($cStreet) ? $cStreet : [];
+                        $personalMap = [
+                            'firstname'  => $defaultBilling->getFirstname(),
+                            'lastname'   => $defaultBilling->getLastname(),
+                            'street1'    => $cStreet[0] ?? '',
+                            'street2'    => $cStreet[1] ?? '',
+                            'city'       => $defaultBilling->getCity(),
+                            'region'     => $defaultBilling->getRegionCode() ?: $defaultBilling->getRegion(),
+                            'postcode'   => $defaultBilling->getPostcode(),
+                            'country_id' => $defaultBilling->getCountryId(),
+                            'telephone'  => $defaultBilling->getTelephone(),
+                        ];
+                        foreach ($personalMap as $prefillKey => $value) {
+                            if (($data[$prefillKey] ?? '') === '') {
+                                $data[$prefillKey] = $val($value);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback for everyone — including guests, who never get a row in
+            // insead_mg_organization / insead_company_address, and a logged-in
+            // customer whose prior order under this email was placed as a
+            // guest: backfill any still-empty tax/org + address fields from
+            // the MOST RECENT placed order with the same email (if multiple
+            // past orders share this email, the latest one wins).
+            $email = $data['email'] ?? '';
+            if ($email !== '') {
+                foreach ($this->organizationLookup->findByEmail($email) as $field => $value) {
+                    if (($data[$field] ?? '') === '') {
+                        $data[$field] = $val($value);
+                    }
+                }
+                foreach ($this->organizationLookup->findAddressByEmail($email) as $field => $value) {
+                    if (($data[$field] ?? '') === '') {
+                        $data[$field] = $val($value);
+                    }
+                }
+            }
         } catch (\Throwable $e) {
             $this->_logger->error('INSEAD checkout prefill: ' . $e->getMessage());
         }
@@ -284,7 +377,7 @@ class Checkout extends Template
     private function isProgrammeInSingapore(): bool
     {
         return $this->scopeConfig->isSetFlag(
-            'checkout/insead_customcheckout/programme_in_singapore',
+            'insead_checkout/insead_customcheckout/programme_in_singapore',
             ScopeInterface::SCOPE_STORE
         );
     }

@@ -20,16 +20,20 @@ define([
     // rendering. Resolved into these vars by _initStripe().
     var getRequiresAction = null;
 
-    // EU member-state ISO codes (France included) — the EU billing group.
+    // EU member-state ISO codes (France is its own group, handled separately
+    // below for SIRET/SIREN). GB included per spec; EL is the official ISO for Greece.
     var euCountries = [
-        'FR','AT','BE','BG','HR','CY','CZ','DK','EE','FI','DE',
-        'GR','HU','IE','IT','LV','LT','LU','MT','NL','PL',
+        'AT','BE','BG','HR','CY','CZ','DK','EE','FI','DE',
+        'EL','GB','HU','IE','IT','LV','LT','LU','MT','NL','PL',
         'PT','RO','SK','SI','ES','SE'
     ];
 
-    // Map any ISO 2-letter country code to a billing group (SG | EU | ROW).
+    // Map any ISO 2-letter country code to a billing group: FR | SG | UAE | US | EU | ROW.
     function countryToGroup(iso) {
+        if (iso === 'FR') { return 'FR'; }
         if (iso === 'SG') { return 'SG'; }
+        if (iso === 'AE') { return 'UAE'; }
+        if (iso === 'US') { return 'US'; }
         if (euCountries.indexOf(iso) !== -1) { return 'EU'; }
         return 'ROW';
     }
@@ -40,48 +44,86 @@ define([
         exempt: $t('Tax Exempt')
     };
 
+    // Tax-status options available per country group. FR/SG get all three, UAE
+    // gets two; US/EU/ROW have only "Tax Registered" (so the dropdown is hidden —
+    // there is no choice to make).
+    var taxOptions = {
+        FR:  ['reg', 'notreg', 'exempt'],
+        SG:  ['reg', 'notreg', 'exempt'],
+        UAE: ['reg', 'notreg'],
+        US:  ['reg'],
+        EU:  ['reg'],
+        ROW: ['reg']
+    };
+
+    // Gender options for the Self-funded customer-information section.
+    var genderOptions = [
+        {value: 'male', label: $t('Male')},
+        {value: 'female', label: $t('Female')},
+        {value: 'nonbinary', label: $t('Non binary')},
+        {value: 'prefer_not', label: $t('Prefer not to answer')}
+    ];
+
+    // Countries excluded from the Self-funded residency declaration.
+    var residencyExcluded = ['SG', 'FR', 'AE', 'US'];
+
     // Region cache keyed by ISO country code (avoids repeat directory calls).
     var regionCache = {};
 
     // Dynamic Tax & Legal Information matrix (spec: tax-fields-changelogic md).
     // Each entry maps to a quote column "code"; type: req | opt | file.
-    var DUNS = {code: 'duns_number', label: 'D-U-N-S Number (optional)', type: 'opt'};
-    var PO = {code: 'po_number', label: 'PO Number', type: 'opt'};
-    var ROUTING = {code: 'routing_address', label: 'Routing Address', type: 'opt'};
-    var TAXREG = {code: 'tax_id_number', label: 'Tax Registration Number', type: 'opt'};
-    var CERT = {code: 'certificate_id', label: 'Certificate ID', type: 'req'};
-    var UPLOAD = {code: 'tax_exempt_file', label: 'Upload Tax Exempt File', type: 'file'};
+    var DUNS     = {code: 'duns_number',    label: 'D-U-N-S Number (optional)',       type: 'opt'};
+    var PO       = {code: 'po_number',      label: 'PO Number',                       type: 'opt'};
+    var ROUTING  = {code: 'routing_address',label: 'Routing Address',                 type: 'opt'};
+    var TAXREG   = {code: 'tax_id_number',  label: 'Tax Registration Number',         type: 'opt'};
+    var CERT_OPT = {code: 'certificate_id', label: 'Certificate ID',                  type: 'opt'};
+    var CERT_REQ = {code: 'certificate_id', label: 'Certificate ID',                  type: 'req'};
+    var UPLOAD     = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file'};
+    var UPLOAD_REQ = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file_req'};
+    var VATUAE   = {code: 'vat_uae',        label: 'UAE VAT Number',                  type: 'req'};
+    var TRN      = {code: 'trn',             label: 'TRN',                             type: 'req'};
+    var EIN      = {code: 'ein',             label: 'EIN',                             type: 'req'};
+    var REG_LABEL= {code: 'reg_type_label', label: 'Registration Type',               type: 'opt'};
+    var REG_VALUE= {code: 'reg_type_value', label: 'Registration Type Value',         type: 'opt'};
+    var VAT_IC   = {code: 'vat_intracommunity', label: 'VAT Intracommunity Number',   type: 'req'};
+    var UEN_SG   = {code: 'uen', label: 'Business Registration Number (UEN)',         type: 'req'};
+    var UEN_GEN  = {code: 'uen', label: 'Business Registration Number',               type: 'req'};
+    var GST_NUM  = {code: 'gst_number', label: 'GST Number',                          type: 'req'};
 
     var fieldDefs = {
-        SG_reg: [
-            {code: 'uen', label: 'Business Registration Number (UEN)', type: 'req'},
-            DUNS,
-            {code: 'gst_number', label: 'GST Number', type: 'req'},
-            PO
-        ],
-        SG_notreg: [
-            {code: 'uen', label: 'Business Registration Number (UEN)', type: 'req'},
-            DUNS, PO
-        ],
-        SG_exempt: [CERT, DUNS, PO, UPLOAD],
+        // France: SIRET/SIREN handled separately in Organisation Details.
+        // reg_type_label/value are auto-set from SIRET in _collectPayload — not dynamic fields.
+        FR_reg:    [DUNS, VAT_IC,   PO, ROUTING],
+        FR_notreg: [DUNS,           PO, ROUTING],
+        FR_exempt: [CERT_REQ, DUNS, PO, ROUTING, UPLOAD_REQ],
 
-        EU_reg: [
-            DUNS,
-            {code: 'vat_intracommunity', label: 'VAT Intracommunity Number', type: 'req'},
-            PO, ROUTING
-        ],
-        EU_notreg: [DUNS, PO, ROUTING],
-        EU_exempt: [CERT, DUNS, PO, ROUTING, UPLOAD],
+        SG_reg:    [UEN_SG, DUNS, GST_NUM, PO],
+        SG_notreg: [UEN_SG, DUNS,          PO],
+        SG_exempt: [CERT_REQ, DUNS,        PO, UPLOAD_REQ],
 
-        ROW_reg: [
-            {code: 'uen', label: 'Business Registration Number', type: 'req'},
-            DUNS, TAXREG, PO
-        ],
-        ROW_notreg: [
-            {code: 'uen', label: 'Business Registration Number', type: 'req'},
-            DUNS, TAXREG, PO
-        ],
-        ROW_exempt: [CERT, DUNS, TAXREG, PO, UPLOAD]
+        // UAE has only Reg and Not-Reg (no Exempt option per spec).
+        // Business Registration Number (BRN) required for UAE per spec.
+        UAE_reg:    [TRN, DUNS, VATUAE, PO],
+        UAE_notreg: [TRN, DUNS,         PO],
+        UAE_exempt: [CERT_REQ, DUNS,        PO, ROUTING],   // unreachable; no UPLOAD per spec
+
+        // US: no national VAT/GST equivalent.
+        US_reg:    [EIN, DUNS, TAXREG, PO],
+        US_notreg: [UEN_GEN, DUNS, TAXREG, PO, ROUTING, REG_LABEL, REG_VALUE, CERT_OPT],
+        US_exempt: [CERT_REQ, DUNS, TAXREG, PO, ROUTING],   // unreachable; no UPLOAD per spec
+
+        // Business Registration Number (BRN) required for EU per spec, alongside VAT-IC.
+        // EU_reg drops Routing Address/Registration Type/Registration Type
+        // Value/Certificate ID — not applicable once the company is Tax Registered.
+        EU_reg:    [UEN_GEN, DUNS, VAT_IC, PO],
+        EU_notreg: [UEN_GEN, DUNS,         PO, ROUTING, REG_LABEL, REG_VALUE, CERT_OPT],
+        EU_exempt: [CERT_REQ, DUNS, PO, ROUTING],            // unreachable; no UPLOAD per spec
+
+        // ROW_reg drops Routing Address/Registration Type/Registration Type
+        // Value/Certificate ID — not applicable once the company is Tax Registered.
+        ROW_reg:    [UEN_GEN, DUNS, TAXREG, PO],
+        ROW_notreg: [UEN_GEN, DUNS, TAXREG, PO, ROUTING, REG_LABEL, REG_VALUE, CERT_OPT],
+        ROW_exempt: [CERT_REQ, DUNS, TAXREG, PO, ROUTING]   // unreachable; no UPLOAD per spec
     };
 
     // INSEAD organisation type + job industry options.
@@ -134,6 +176,7 @@ define([
             this.organizationTypes = organizationTypes;
             this.jobIndustries = jobIndustries;
             this.gstStatements = gstStatements;
+            this.genderOptions = genderOptions;
             this.today = new Date().toLocaleDateString();
             this._initObservables();
             this._initComputed();
@@ -155,7 +198,7 @@ define([
             this.countriesList = ko.observableArray(this.countries || []);
             this.stripeConfig = this.stripe || {};
             this.paymentConfig = this.paymentMethods || {};
-            this.summaryData = this.summary || {items: [], totals: {}};
+            this.summaryData = ko.observable(this.summary || {items: [], totals: {}});
             this.programmeIsSingapore = !!this.programmeInSingapore;
 
             // Billing-address identity (name/email/phone). Supplied by the upstream
@@ -173,7 +216,15 @@ define([
             );
             this.taxStatusList = ko.observableArray([]);
 
-            // ---- B2C (Self-funded) ----
+            // ---- B2C (Self-funded) — customer information ----
+            this.b2cFirstName = ko.observable(pf.firstname || customer.firstname || '');
+            this.b2cLastName = ko.observable(pf.lastname || customer.lastname || '');
+            this.b2cEmail = ko.observable(pf.email || customer.email || '');
+            this.gender = ko.observable(pf.gender || '');
+            this.b2cPhone = ko.observable(pf.telephone || '');
+            this.nationality = ko.observable(pf.nationality || pf.country_id || '');
+
+            // ---- B2C (Self-funded) — billing address ----
             this.street1 = ko.observable(pf.street1 || '');
             this.street2 = ko.observable(pf.street2 || '');
             this.city = ko.observable(pf.city || '');
@@ -210,9 +261,15 @@ define([
             // maps to SIRET in Organisation Details, not Tax & Legal).
             var seed = {
                 vat_intracommunity: pf.vat_intracommunity, gst_number: pf.gst_number,
+                vat_uae: pf.vat_uae,
                 tax_id_number: pf.tax_id_number, certificate_id: pf.certificate_id,
                 duns_number: pf.duns_number, routing_address: pf.routing_address,
-                po_number: pf.po_number
+                po_number: pf.po_number,
+                reg_type_label: pf.reg_type_label, reg_type_value: pf.reg_type_value,
+                // Already-uploaded server path from a prior save; resubmitted as-is
+                // by _collectPayload() unless the shopper picks a new file (which
+                // populates _taxExemptPaths and takes priority — see _collectPayload).
+                tax_exempt_file: pf.tax_exempt_file
             };
             if (!isFR) { seed.uen = pf.uen; }
             for (var code in seed) {
@@ -224,8 +281,6 @@ define([
 
             // ---- Step 2: payment ----
             this.currentStep = ko.observable('billing'); // 'billing' | 'payment'
-            this.creditCode = ko.observable('');
-            this.creditApplied = ko.observable(false);
             this.acceptedTerms = ko.observable(false);
             this.paymentChoice = ko.observable(''); // 'card' | 'bank'
 
@@ -248,10 +303,24 @@ define([
             this.isB2C = ko.computed(function () { return self.financingProfile() === 'b2c'; });
             this.countryGroup = ko.computed(function () { return countryToGroup(self.country()); });
             this.isFrance = ko.computed(function () { return self.country() === 'FR'; });
+            // Tax Status dropdown: shown for all B2B country groups. FR/SG/UAE offer
+            // a real choice; US/EU/ROW show the single "Tax Registered" option.
+            this.showTaxStatus = ko.computed(function () {
+                return self.isB2B();
+            });
             this.hasRegions = ko.computed(function () { return self.regionsList().length > 0; });
-            // GST Declaration: programme in Singapore AND company is Rest-of-World.
+            // GST Declaration: B2B, programme in Singapore, for every country group
+            // EXCEPT Singapore, France, UAE and US (i.e. shown for EU and ROW).
             this.showGstDeclaration = ko.computed(function () {
-                return self.isB2B() && self.programmeIsSingapore && self.countryGroup() === 'ROW';
+                var excludedGroups = ['SG', 'FR', 'UAE', 'US'];
+                return self.isB2B() && self.programmeIsSingapore
+                    && excludedGroups.indexOf(self.countryGroup()) === -1;
+            });
+            // Self-funded residency Declaration: Singapore legal entity AND B2C AND
+            // billing country NOT in SG/FR/UAE/US.
+            this.showResidencyDeclaration = ko.computed(function () {
+                return self.isB2C() && self.programmeIsSingapore
+                    && residencyExcluded.indexOf(self.country()) === -1;
             });
             this.cardMethod = this.paymentConfig.card || null;
             this.bankMethod = this.paymentConfig.bank || null;
@@ -303,14 +372,59 @@ define([
         },
 
         /**
+         * Capture the File chosen for a Tax Exempt upload field. The actual file
+         * is held until Save / Proceed to payment, when _uploadPendingFiles() POSTs
+         * it. `valueObservable` keeps the filename so required-field validation
+         * passes; a previously uploaded server path is cleared so the new file wins.
+         */
+        setTaxExemptFile: function (code, valueObservable, file) {
+            if (!this._taxExemptFiles) { this._taxExemptFiles = {}; }
+            if (!this._taxExemptPaths) { this._taxExemptPaths = {}; }
+            this._taxExemptFiles[code] = file || null;
+            delete this._taxExemptPaths[code];
+            valueObservable(file ? file.name : '');
+        },
+
+        /**
+         * Upload any pending Tax Exempt files to the server, recording each
+         * returned relative path in _taxExemptPaths so _collectPayload() can send
+         * it. Returns a jQuery promise that resolves once all uploads finish (or
+         * immediately when there is nothing to upload).
+         */
+        _uploadPendingFiles: function () {
+            var self = this;
+            var files = this._taxExemptFiles || {};
+            var pending = Object.keys(files).filter(function (code) { return files[code]; });
+            if (!pending.length || !this.endpointUrls.upload) {
+                return $.Deferred().resolve().promise();
+            }
+            return $.when.apply($, pending.map(function (code) {
+                var fd = new FormData();
+                fd.append('form_key', self.formKeyValue);
+                fd.append('tax_exempt_file', files[code]);
+                return $.ajax({
+                    url: self.endpointUrls.upload, method: 'POST', data: fd,
+                    processData: false, contentType: false, dataType: 'json'
+                }).then(function (res) {
+                    if (res && res.success && res.path) {
+                        self._taxExemptPaths[code] = res.path;
+                        self._taxExemptFiles[code] = null; // don't re-upload
+                    } else {
+                        return $.Deferred().reject(res && res.message).promise();
+                    }
+                });
+            }));
+        },
+
+        /**
          * Rebuild the tax-status dropdown + the dynamic Tax & Legal fields for the
          * current country group and tax status.
          */
         renderFields: function () {
             var self = this;
             var group = this.countryGroup();
-            // Singapore + EU expose all three statuses; Rest-of-World only reg/notreg/exempt too.
-            var allowed = ['reg', 'notreg', 'exempt'];
+            // Per-group tax-status options (FR/SG all 3, UAE 2, US/EU/ROW reg only).
+            var allowed = taxOptions[group] || ['reg'];
 
             this.taxStatusList(allowed.map(function (v) {
                 return {value: v, label: taxLabels[v]};
@@ -326,8 +440,8 @@ define([
                     code: def.code,
                     label: $t(def.label),
                     type: def.type,
-                    isFile: def.type === 'file',
-                    required: def.type === 'req',
+                    isFile: def.type === 'file' || def.type === 'file_req',
+                    required: def.type === 'req' || def.type === 'file_req',
                     value: self.valueFor(def.code)
                 };
             }));
@@ -369,15 +483,25 @@ define([
             if (!this.country()) { errs.country = true; }
 
             if (this.isB2C()) {
+                if (!this.b2cFirstName()) { errs.b2cFirstName = true; }
+                if (!this.b2cLastName()) { errs.b2cLastName = true; }
+                if (this.b2cEmail() && !emailRe.test(this.b2cEmail())) { errs.b2cEmail = true; }
+                if (!this.gender()) { errs.gender = true; }
+                if (!this.b2cPhone()) { errs.b2cPhone = true; }
+                if (!this.nationality()) { errs.nationality = true; }
                 if (!this.street1()) { errs.street1 = true; }
                 if (!this.city()) { errs.city = true; }
-                if (!this.residencyDeclaration()) { errs.residencyDeclaration = true; }
+                if (this.showResidencyDeclaration() && !this.residencyDeclaration()) {
+                    errs.residencyDeclaration = true;
+                }
             } else {
                 if (!this.invoiceFirstName()) { errs.invoiceFirstName = true; }
                 if (!this.invoiceLastName()) { errs.invoiceLastName = true; }
                 if (!this.invoiceEmail() || !emailRe.test(this.invoiceEmail())) { errs.invoiceEmail = true; }
+                if (!this.gender()) { errs.gender = true; }
+                if (!this.nationality()) { errs.nationality = true; }
                 if (!this.companyLegalName()) { errs.companyLegalName = true; }
-                if (!this.companyTradeName()) { errs.companyTradeName = true; }
+                // companyTradeName (Commercial Company Name) is optional per spec
                 if (!this.organizationType()) { errs.organizationType = true; }
                 if (!this.jobIndustry()) { errs.jobIndustry = true; }
                 if (!this.companyStreet1()) { errs.companyStreet1 = true; }
@@ -403,22 +527,26 @@ define([
             };
 
             if (this.isB2C()) {
-                data.firstname = this.customerFirstName;
-                data.lastname = this.customerLastName;
-                data.email = this.customerEmail;
-                data.telephone = this.customerTelephone;
+                data.firstname = this.b2cFirstName();
+                data.lastname = this.b2cLastName();
+                data.email = this.b2cEmail();
+                data.telephone = this.b2cPhone();
+                data.gender = this.gender();
+                data.nationality = this.nationality();
                 data.street1 = this.street1();
                 data.street2 = this.street2();
                 data.city = this.city();
                 data.region = this.region();
                 data.postcode = this.postcode();
-                data.residency_declaration = this.residencyDeclaration();
+                data.residency_declaration = this.showResidencyDeclaration() ? this.residencyDeclaration() : '';
             } else {
                 // Billing address contact = invoice recipient.
                 data.firstname = this.invoiceFirstName();
                 data.lastname = this.invoiceLastName();
                 data.email = this.invoiceEmail();
                 data.telephone = this.customerTelephone;
+                data.gender = this.gender();
+                data.nationality = this.nationality();
                 data.street1 = this.companyStreet1();
                 data.street2 = this.companyStreet2();
                 data.city = this.companyCity();
@@ -443,12 +571,13 @@ define([
                 }
 
                 // Dynamic Tax & Legal field values keyed by quote column code.
+                // File fields send the uploaded server path (set by _uploadPendingFiles).
+                var paths = this._taxExemptPaths || {};
                 this.dynamicFields().forEach(function (f) {
-                    data[f.code] = f.value();
+                    data[f.code] = (f.isFile && paths[f.code]) ? paths[f.code] : f.value();
                 });
             }
 
-            data.credit_consumption_code = this.creditCode();
             return data;
         },
 
@@ -461,18 +590,25 @@ define([
                 return;
             }
             this.isLoading(true);
-            $.ajax({
-                url: this.endpointUrls.save, method: 'POST', dataType: 'json', data: this._collectPayload()
+            this._uploadPendingFiles().then(function () {
+                return $.ajax({
+                    url: self.endpointUrls.save, method: 'POST', dataType: 'json', data: self._collectPayload()
+                });
             }).done(function (res) {
                 if (res && res.success) {
+                    if (res.totals) {
+                        var current = self.summaryData();
+                        self.summaryData({items: current.items, totals: res.totals});
+                    }
                     self.currentStep('payment');
                     self._initStripe();
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 } else {
                     self.globalError((res && res.message) || $t('Unable to save billing data.'));
                 }
-            }).fail(function () {
-                self.globalError($t('Unable to save billing data. Please try again.'));
+            }).fail(function (err) {
+                self.globalError((typeof err === 'string' && err)
+                    || $t('Unable to save billing data. Please try again.'));
             }).always(function () {
                 self.isLoading(false);
             });
@@ -482,24 +618,23 @@ define([
         saveBilling: function () {
             var self = this;
             this.globalError('');
-            $.ajax({
-                url: this.endpointUrls.save, method: 'POST', dataType: 'json', data: this._collectPayload()
+            this._uploadPendingFiles().then(function () {
+                return $.ajax({
+                    url: self.endpointUrls.save, method: 'POST', dataType: 'json', data: self._collectPayload()
+                });
             }).done(function (res) {
                 if (!res || !res.success) {
                     self.globalError((res && res.message) || $t('Unable to save billing data.'));
                 }
+            }).fail(function (err) {
+                self.globalError((typeof err === 'string' && err)
+                    || $t('Unable to upload the file. Please try again.'));
             });
         },
 
         backToBilling: function () {
             this.currentStep('billing');
             this.globalError('');
-        },
-
-        verifyCreditCode: function () {
-            // Lightweight client-side acknowledgement; the code is persisted with
-            // the billing payload (credit_consumption_code) for back-office review.
-            this.creditApplied(!!this.creditCode());
         },
 
         // ---- Stripe payment -------------------------------------------------
@@ -557,10 +692,10 @@ define([
         _billingDetails: function () {
             var name = this.isB2B()
                 ? (this.invoiceFirstName() + ' ' + this.invoiceLastName())
-                : (this.customerFirstName + ' ' + this.customerLastName);
+                : (this.b2cFirstName() + ' ' + this.b2cLastName());
             return {
                 name: name.trim(),
-                email: this.isB2B() ? this.invoiceEmail() : this.customerEmail,
+                email: this.isB2B() ? this.invoiceEmail() : this.b2cEmail(),
                 address: {
                     line1: this.isB2B() ? this.companyStreet1() : this.street1(),
                     line2: this.isB2B() ? this.companyStreet2() : this.street2(),
