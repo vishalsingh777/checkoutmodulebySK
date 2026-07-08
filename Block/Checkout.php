@@ -12,10 +12,15 @@ use Magento\Payment\Model\MethodList;
 use Magento\Framework\Data\Form\FormKey;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\UrlInterface;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Framework\Pricing\PriceCurrencyInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use StripeIntegration\Payments\Model\Ui\ConfigProvider as StripeConfigProvider;
+use PayPal\Braintree\Model\Ui\ConfigProvider as BraintreeConfigProvider;
+use Magento\Cms\Api\GetBlockByIdentifierInterface;
+use Magento\Cms\Model\Template\FilterProvider as CmsFilterProvider;
+use Ewave\CustomerVat\Helper\AddressAttributeConfig;
 use Insead\CustomCheckout\Model\OrganizationLookup;
 use Insead\CustomCheckout\Model\CompanyProfile;
 
@@ -33,6 +38,12 @@ class Checkout extends Template
     private const STRIPE_CARD = 'stripe_payments';
     private const STRIPE_BANK = 'stripe_payments_bank_transfers';
 
+    /** CMS block rendered in the Declarations card (Content > Blocks). */
+    private const DECLARATIONS_CMS_BLOCK = 'checkout-sidebar-text';
+
+    /** Memoised Braintree token (false = not yet resolved; null = inactive/error). */
+    private string|null|false $cachedBraintreeToken = false;
+
     public function __construct(
         Context $context,
         private readonly CustomerSession $customerSession,
@@ -44,9 +55,13 @@ class Checkout extends Template
         private readonly ScopeConfigInterface $scopeConfig,
         private readonly PriceCurrencyInterface $priceCurrency,
         private readonly StripeConfigProvider $stripeConfigProvider,
+        private readonly BraintreeConfigProvider $braintreeConfigProvider,
         private readonly StoreManagerInterface $storeManager,
         private readonly OrganizationLookup $organizationLookup,
         private readonly CompanyProfile $companyProfile,
+        private readonly GetBlockByIdentifierInterface $cmsBlockByIdentifier,
+        private readonly CmsFilterProvider $cmsFilterProvider,
+        private readonly AddressAttributeConfig $vatConfig,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -83,8 +98,12 @@ class Checkout extends Template
             'summary'        => $this->getSummary(),
             'prefill'        => $this->getPrefill(),
             'programmeInSingapore' => $this->isProgrammeInSingapore(),
-            'formKey'        => $this->formKey->getFormKey(),
-            'urls'           => [
+            'formKey'             => $this->formKey->getFormKey(),
+            'braintreeClientToken' => $this->getBraintreeClientToken(),
+            'proformaInvoiceEnabled' => $this->isProformaInvoiceEnabled(),
+            'declarationsHtml'    => $this->getDeclarationsHtml(),
+            'vatValidationEnabled' => $this->isVatValidationEnabled(),
+            'urls'                => [
                 'lookup'         => $this->getUrl('insead_checkout/company/lookup'),
                 'save'           => $this->getUrl('insead_checkout/billing/save'),
                 'upload'         => $this->getUrl('insead_checkout/billing/upload'),
@@ -92,8 +111,95 @@ class Checkout extends Template
                 'requiresAction' => $this->getUrl('stripe/payments/get_requires_action'),
                 'success'        => $this->getUrl('checkout/onepage/success'),
                 'cart'           => $this->getUrl('checkout/cart'),
+                'proformaPdf'    => $this->getUrl('proforma/quote/pdf'),
+                'applyCoupon'    => $this->getUrl('insead_checkout/coupon/apply'),
+                'validateVat'    => $this->getUrl('insead_checkout/vat/validate'),
+                'restBase'       => $this->storeManager->getStore()
+                    ->getBaseUrl(UrlInterface::URL_TYPE_WEB) . 'rest/V1/',
             ],
         ]);
+    }
+
+    /**
+     * Whether the "Quotation" (Proforma Invoice) button should be shown on the
+     * payment step. Mirrors Insead\ProformaInvoice\Helper\Data::isEnabled() —
+     * same config path (Stores > Configuration > Insead > Proforma Invoice),
+     * read directly via scopeConfig (already injected here) rather than adding
+     * a hard dependency on that module.
+     */
+    private function isProformaInvoiceEnabled(): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            'proforma_invoice/general/enabled',
+            ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /**
+     * Whether the live VAT Intracommunity Number check should run. Reuses
+     * Ewave_CustomerVat's own "Enable Automatic Assignment to Customer Group"
+     * toggle (Stores > Configuration > Ewave > Customer VAT > Assign by
+     * specific address attributes), so this store's existing VAT-processing
+     * setting is respected instead of always validating regardless of it.
+     */
+    private function isVatValidationEnabled(): bool
+    {
+        $storeId = (int) $this->storeManager->getStore()->getId();
+        return $this->vatConfig->isAutoGroupAssignEnabled($storeId);
+    }
+
+    /**
+     * Renders the "checkout-sidebar-text" CMS block (Content > Blocks) for the
+     * Declarations card, store-scoped and with widget/template directives
+     * filtered the same way Magento\Cms\Block\BlockByIdentifier does. Content
+     * is informational only — no acceptance checkbox gates order placement
+     * anymore. Returns '' when the block is missing, disabled, or errors.
+     */
+    private function getDeclarationsHtml(): string
+    {
+        try {
+            $storeId = (int) $this->storeManager->getStore()->getId();
+            $block = $this->cmsBlockByIdentifier->execute(self::DECLARATIONS_CMS_BLOCK, $storeId);
+            if (!$block->isActive()) {
+                return '';
+            }
+            return $this->cmsFilterProvider->getBlockFilter()
+                ->setStoreId($storeId)
+                ->filter((string) $block->getContent());
+        } catch (\Throwable $e) {
+            $this->_logger->error('INSEAD checkout declarations block: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /**
+     * Generate the Braintree client token at page-render time.
+     * The paypal/module-braintree-core does not expose a REST endpoint for this,
+     * so we generate it server-side and embed it directly in the JS config.
+     * Returns null when Braintree is inactive or the API call fails.
+     *
+     * Memoised: getClientToken() makes an HTTP call to Braintree's servers and
+     * is called from both getJsonConfig() and the phtml <script defer> guard.
+     * Without this cache the double call doubled page-load latency and could
+     * trigger PHP max_execution_time on a slow first connection.
+     */
+    public function getBraintreeClientToken(): ?string
+    {
+        if ($this->cachedBraintreeToken !== false) {
+            return $this->cachedBraintreeToken;
+        }
+        try {
+            $config = $this->braintreeConfigProvider->getConfig();
+            $isActive = $config['payment'][BraintreeConfigProvider::CODE]['isActive'] ?? false;
+            if (!$isActive) {
+                return $this->cachedBraintreeToken = null;
+            }
+            $token = $this->braintreeConfigProvider->getClientToken();
+            return $this->cachedBraintreeToken = is_string($token) ? $token : null;
+        } catch (\Throwable $e) {
+            $this->_logger->error('INSEAD Braintree client token: ' . $e->getMessage());
+            return $this->cachedBraintreeToken = null;
+        }
     }
 
     /**
@@ -131,29 +237,91 @@ class Checkout extends Template
     }
 
     /**
-     * Card / Bank-transfer availability + titles for the payment-method radios.
+     * All available payment methods grouped for the payment step.
+     * Stripe card + bank are handled via the Payment Element; every other
+     * enabled method is surfaced in the `others` list so the checkout can
+     * render them (Braintree Drop-in, offline methods, etc.).
      *
-     * @return array{card:?array{code:string,title:string},bank:?array{code:string,title:string}}
+     * @return array{card:?array,bank:?array,others:array}
      */
     private function getPaymentMethods(): array
     {
         $available = [];
         try {
-            $quote = $this->checkoutSession->getQuote();
+            $quote   = $this->checkoutSession->getQuote();
+            $storeId = (int) $this->storeManager->getStore()->getId();
+
+            // getAvailableMethods() validates each method against the current quote
+            // (amount limits, country restrictions, unconfigured gateways, "free"
+            // only when total=0, Stripe Billing needing a customer, etc.) so only
+            // truly usable methods are returned. This is multi-store safe because
+            // the quote already carries the correct store_id.
             foreach ($this->methodList->getAvailableMethods($quote) as $method) {
                 $available[$method->getCode()] = (string) $method->getTitle();
+            }
+
+            // For virtual quotes Magento's offline payment methods (COD, bank
+            // transfer, check/money order, purchase order) self-exclude via
+            // isAvailable($quote->isVirtual()). INSEAD programmes are always
+            // virtual, but these offline methods may still be intentionally enabled
+            // per store. Re-add them when they are active in the current store scope.
+            if ($quote->isVirtual()) {
+                foreach (['cashondelivery', 'checkmo', 'banktransfer', 'purchaseorder'] as $code) {
+                    if (isset($available[$code])) {
+                        continue; // already returned by getAvailableMethods
+                    }
+                    if ($this->scopeConfig->isSetFlag(
+                        'payment/' . $code . '/active',
+                        ScopeInterface::SCOPE_STORE,
+                        $storeId
+                    )) {
+                        $title = (string) $this->scopeConfig->getValue(
+                            'payment/' . $code . '/title',
+                            ScopeInterface::SCOPE_STORE,
+                            $storeId
+                        );
+                        if ($title !== '') {
+                            $available[$code] = $title;
+                        }
+                    }
+                }
             }
         } catch (\Throwable $e) {
             $this->_logger->error('INSEAD checkout payment methods: ' . $e->getMessage());
         }
 
+        $stripeExplicit = [self::STRIPE_CARD, self::STRIPE_BANK];
+        $others = [];
+        foreach ($available as $code => $title) {
+            // Skip the two Stripe methods that have their own explicit UI sections.
+            if (in_array($code, $stripeExplicit, true)) {
+                continue;
+            }
+            // Skip ALL other stripe_* sub-methods (stripe_payments_express covers
+            // Apple Pay + Google Pay, stripe_payments_multishipping, etc.).
+            // These are rendered INSIDE the Stripe Payment Element automatically
+            // by Stripe's SDK when the browser supports them — they must not appear
+            // as separate radio buttons because they have no standalone form UI.
+            if (strncmp($code, 'stripe_', 7) === 0) {
+                continue;
+            }
+            // Skip Braintree sub-methods (braintree_cc_vault, braintree_paypal,
+            // braintree_googlepay, etc.). The Drop-in UI renders all payment types
+            // internally — only the top-level 'braintree' code gets a UI slot.
+            if ($code !== 'braintree' && strncmp($code, 'braintree', 9) === 0) {
+                continue;
+            }
+            $others[] = ['code' => $code, 'title' => $title];
+        }
+
         return [
-            'card' => isset($available[self::STRIPE_CARD])
+            'card'   => isset($available[self::STRIPE_CARD])
                 ? ['code' => self::STRIPE_CARD, 'title' => $available[self::STRIPE_CARD]]
                 : null,
-            'bank' => isset($available[self::STRIPE_BANK])
+            'bank'   => isset($available[self::STRIPE_BANK])
                 ? ['code' => self::STRIPE_BANK, 'title' => $available[self::STRIPE_BANK]]
                 : null,
+            'others' => $others,
         ];
     }
 
@@ -190,7 +358,7 @@ class Checkout extends Template
     private function getSummary(): array
     {
         $items = [];
-        $totals = ['subtotal' => '', 'tax' => '', 'grand' => ''];
+        $totals = ['subtotal' => '', 'discount' => '', 'tax' => '', 'grand' => '', 'grandRaw' => '0.00', 'couponCode' => ''];
         $currency = '';
         try {
             $quote = $this->checkoutSession->getQuote();
@@ -212,9 +380,14 @@ class Checkout extends Template
                 }
                 $address = $quote->isVirtual() ? $quote->getBillingAddress() : $quote->getShippingAddress();
                 $totals = [
-                    'subtotal' => $this->priceCurrency->format((float) $quote->getSubtotal(), false),
-                    'tax'      => $this->priceCurrency->format((float) $address->getTaxAmount(), false),
-                    'grand'    => $this->priceCurrency->format((float) $quote->getGrandTotal(), false),
+                    'subtotal'   => $this->priceCurrency->format((float) $quote->getSubtotal(), false),
+                    'discount'   => $this->priceCurrency->format(abs((float) $address->getDiscountAmount()), false),
+                    'tax'        => $this->priceCurrency->format((float) $address->getTaxAmount(), false),
+                    'grand'      => $this->priceCurrency->format((float) $quote->getGrandTotal(), false),
+                    // Unformatted amount for the Braintree 3D Secure challenge, which
+                    // needs a plain decimal string ("7.00"), not a currency-symbol string.
+                    'grandRaw'   => number_format((float) $quote->getGrandTotal(), 2, '.', ''),
+                    'couponCode' => (string) $quote->getCouponCode(),
                 ];
             }
         } catch (\Throwable $e) {
@@ -281,6 +454,7 @@ class Checkout extends Template
                 'duns_number'        => $val($quote->getData('duns_number')),
                 'routing_address'    => $val($quote->getData('routing_address')),
                 'tax_exempt_file'    => $val($quote->getData('tax_exempt_file')),
+                'peoplesoft_id'      => $val($quote->getData('peoplesoft_id')),
             ];
 
             // Returning customer: backfill any still-empty organization/tax
@@ -288,6 +462,15 @@ class Checkout extends Template
             // customer_id). Guests are never written there, so nothing to do.
             if ($this->customerSession->isLoggedIn()) {
                 $customerId = (int) $this->customerSession->getCustomerId();
+
+                // peoplesoft_id is stored on customer_entity directly; read it
+                // from the already-loaded customer model if the quote didn't have it.
+                if (($data['peoplesoft_id'] ?? '') === '') {
+                    $data['peoplesoft_id'] = $val(
+                        $this->customerSession->getCustomer()->getData('peoplesoft_id')
+                    );
+                }
+
                 foreach ($this->organizationLookup->findByCustomerId($customerId) as $field => $value) {
                     if (($data[$field] ?? '') === '') {
                         $data[$field] = $val($value);

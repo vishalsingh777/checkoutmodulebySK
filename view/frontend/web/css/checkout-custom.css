@@ -23,9 +23,11 @@
 .insead-stepper {
     display: flex;
     list-style: none;
-    margin: 0 0 28px;
+    max-width: 680px;
+    margin: 0 auto 28px;
     padding: 0;
     gap: 8px;
+    counter-reset: none;
 }
 .insead-stepper__step {
     flex: 1;
@@ -36,6 +38,12 @@
     font-weight: 600;
     font-size: 14px;
     position: relative;
+    list-style: none;
+}
+/* Suppress any theme ::before counter that would duplicate the HTML number. */
+.insead-stepper__step::before {
+    display: none !important;
+    content: none !important;
 }
 .insead-stepper__step:not(:last-child)::after {
     content: '';
@@ -225,6 +233,44 @@
     padding: 15px;
     font-size: 16px;
 }
+.insead-btn._outline {
+    width: 100%;
+    background: #fff;
+    color: var(--insead-green);
+    border: 1px solid var(--insead-green);
+    border-radius: 8px;
+    padding: 13px;
+    font-size: 15px;
+}
+.insead-btn._outline:hover { background: #f2f8f5; filter: none; }
+
+/* ---------- Discount code ---------- */
+.insead-coupon-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--insead-border);
+    border-radius: 6px;
+    padding: 11px 12px;
+    font-size: 15px;
+    color: var(--insead-text);
+    margin-bottom: 14px;
+}
+.insead-coupon-input:focus { outline: none; border-color: var(--insead-green); }
+.insead-coupon-msg {
+    font-size: 13px;
+    color: var(--insead-green-text);
+    margin: -6px 0 10px;
+}
+.insead-coupon-msg._error { color: var(--insead-error); }
+
+/* ---------- Field validation status (VAT / SIRET) ---------- */
+.insead-field-status {
+    font-size: 13px;
+    color: var(--insead-muted);
+    margin: 4px 0 0;
+}
+.insead-field-status._valid { color: var(--insead-green-text); }
+.insead-field-status._invalid { color: var(--insead-error); }
 
 /* ---------- Alert ---------- */
 .insead-alert {
@@ -281,6 +327,76 @@
     border-radius: 8px;
     padding: 14px;
     margin: 0 0 12px;
+}
+
+/* ---------- Braintree Drop-in ---------- */
+.insead-braintree-wrap {
+    margin: 8px 0 12px;
+}
+#insead-braintree-dropin {
+    min-height: 60px;
+}
+/*
+ * The learninghub theme globally hides iframes and resets inputs.
+ * Force Braintree's hosted-fields iframe and its internal controls to render.
+ */
+.insead-checkout .insead-braintree-wrap iframe,
+.insead-checkout #insead-braintree-dropin iframe {
+    display: block !important;
+    border: 0;
+    width: 100%;
+}
+.insead-checkout #insead-braintree-dropin input,
+.insead-checkout #insead-braintree-dropin [data-braintree-id] {
+    display: block;
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    appearance: auto;
+    position: static;
+    opacity: 1;
+    clip: auto;
+    pointer-events: auto;
+}
+/* Drop-in uses its own shadow-DOM-like structure; ensure nothing collapses it */
+.insead-checkout [data-braintree-id="wrapper"],
+.insead-checkout [data-braintree-id="sheet-container"] {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+/* Card brand icons: our generic [data-braintree-id]{display:block} rule stacks
+   them vertically. Restore flex row for the icons container and inline-block
+   for each individual icon. */
+#insead-braintree-dropin [data-braintree-id="card-view-icons"] {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+#insead-braintree-dropin [data-braintree-id$="-card-icon"] {
+    display: inline-block !important;
+    width: auto !important;
+    height: 24px;
+}
+/* Restrict Braintree Drop-in to card entry form only.
+   data-braintree-id values confirmed from dropin.min.js v1.43.0 bundle.
+   1. Hide non-card payment option tiles (PayPal, Apple Pay, etc.)
+   2. Hide vaulted-card management UI (saved card display + delete confirmation)
+      so only the raw card entry form is visible. */
+#insead-braintree-dropin [data-braintree-id="paypal"],
+#insead-braintree-dropin [data-braintree-id="paypalCredit"],
+#insead-braintree-dropin [data-braintree-id="applePay"],
+#insead-braintree-dropin [data-braintree-id="googlePay"],
+#insead-braintree-dropin [data-braintree-id="venmo"],
+#insead-braintree-dropin [data-braintree-id="other-ways-to-pay"],
+#insead-braintree-dropin [data-braintree-id="choose-a-way-to-pay"],
+#insead-braintree-dropin [data-braintree-id="toggle"],
+#insead-braintree-dropin [data-braintree-id="methods"],
+#insead-braintree-dropin [data-braintree-id="methods-container"],
+#insead-braintree-dropin [data-braintree-id="methods-label"],
+#insead-braintree-dropin [data-braintree-id="methods-edit"],
+#insead-braintree-dropin [data-braintree-id="delete-confirmation"] {
+    display: none !important;
 }
 
 @media (max-width: 900px) {

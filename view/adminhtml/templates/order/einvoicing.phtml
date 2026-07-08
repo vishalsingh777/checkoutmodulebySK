@@ -3,25 +3,31 @@
 $rows = $block->getInfo();
 ?>
 <?php if (!empty($rows)): ?>
-    <section class="admin__page-section insead-einvoicing-info">
-        <div class="admin__page-section-title">
-            <span class="title"><?= $block->escapeHtml(__('Financing & E-Invoicing Details')) ?></span>
+<section class="admin__page-section order-view-account-information">
+    <div class="admin__page-section-title">
+        <span class="title"><?= $block->escapeHtml(__('Financing & E-Invoicing Details')) ?></span>
+    </div>
+    <div class="admin__page-section-content">
+        <div class="admin__page-section-item">
+            <div class="admin__page-section-item-content">
+                <table class="admin__table-secondary">
+                    <?php foreach ($rows as $row): ?>
+                        <tr>
+                            <th><?= $block->escapeHtml($row['label']) ?></th>
+                            <td>
+                                <?php if (!empty($row['url'])): ?>
+                                    <a href="<?= $block->escapeUrl($row['url']) ?>" target="_blank" rel="noopener">
+                                        <?= $block->escapeHtml($row['value']) ?>
+                                    </a>
+                                <?php else: ?>
+                                    <?= $block->escapeHtml($row['value']) ?>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
+            </div>
         </div>
-        <table class="admin__table-secondary">
-            <?php foreach ($rows as $row): ?>
-                <tr>
-                    <th><?= $block->escapeHtml($row['label']) ?></th>
-                    <td>
-                        <?php if (!empty($row['url'])): ?>
-                            <a href="<?= $block->escapeUrl($row['url']) ?>" target="_blank" rel="noopener">
-                                <?= $block->escapeHtml($row['value']) ?>
-                            </a>
-                        <?php else: ?>
-                            <?= $block->escapeHtml($row['value']) ?>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </table>
-    </section>
+    </div>
+</section>
 <?php endif; ?>

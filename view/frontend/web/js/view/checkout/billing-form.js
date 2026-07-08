@@ -38,6 +38,29 @@ define([
         return 'ROW';
     }
 
+    /**
+     * Validates a French SIRET number: exactly 14 digits, passing the Luhn
+     * (mod 10) checksum used for SIRET/SIREN — the standard offline
+     * verification (no external service exists for this the way VIES does
+     * for EU VAT numbers). Note: French *La Poste* SIRET numbers are a
+     * documented, long-standing exception to the Luhn check; not handled
+     * here, matching how most public SIRET validators behave.
+     */
+    function isValidSiret(value) {
+        var digits = (value || '').replace(/\s+/g, '');
+        if (!/^\d{14}$/.test(digits)) { return false; }
+        var sum = 0;
+        for (var i = 0; i < digits.length; i++) {
+            var digit = parseInt(digits.charAt(digits.length - 1 - i), 10);
+            if (i % 2 === 1) {
+                digit *= 2;
+                if (digit > 9) { digit -= 9; }
+            }
+            sum += digit;
+        }
+        return sum % 10 === 0;
+    }
+
     var taxLabels = {
         reg: $t('Tax Registered'),
         notreg: $t('Not Tax Registered'),
@@ -200,6 +223,30 @@ define([
             this.paymentConfig = this.paymentMethods || {};
             this.summaryData = ko.observable(this.summary || {items: [], totals: {}});
             this.programmeIsSingapore = !!this.programmeInSingapore;
+            // Non-Stripe payment methods (Braintree, PayPal, offline, etc.)
+            this.otherMethods = ko.observableArray(this.paymentConfig.others || []);
+            // True while the Braintree Drop-in is being fetched / created.
+            this.braintreeLoading = ko.observable(false);
+            // Store/website-scoped "Quotation" (Proforma Invoice) button, shared
+            // config with Insead_ProformaInvoice's native-checkout integration.
+            this.showProformaButton = !!this.proformaInvoiceEnabled;
+
+            // Native Magento Sales Rule coupon code (website/store scoped like
+            // any other cart price rule). Prefilled if the quote already has one.
+            this.couponCode = ko.observable((this.summaryData().totals || {}).couponCode || '');
+            this.couponMessage = ko.observable('');
+            this.couponError = ko.observable(false);
+            this.couponLoading = ko.observable(false);
+
+            // Gates the live VAT Intracommunity check — mirrors Ewave_CustomerVat's
+            // own "Enable Automatic Assignment to Customer Group" store setting
+            // (ewave_customervat/address_attribute/auto_group_assign), so a store
+            // with that mechanism off doesn't get live VAT validation either.
+            this.vatValidationEnabled = !!this.vatValidationEnabled;
+
+            // Passthrough values from the populate flow — not editable in the form
+            // but must round-trip to Save.php so they persist on the quote/customer.
+            this._peoplesoftId = pf.peoplesoft_id || '';
 
             // Billing-address identity (name/email/phone). Supplied by the upstream
             // flow and not shown for Self-funded; used server-side for the address.
@@ -243,6 +290,9 @@ define([
             this.isCompanyNameAuto = ko.observable(false);
             this.siret = ko.observable(isFR ? (pf.uen || '') : '');
             this.siren = ko.observable('');
+            // Live SIRET checksum feedback: idle | valid | invalid.
+            this.siretStatus = ko.observable('idle');
+            this.siretMessage = ko.observable('');
 
             // ---- B2B — Postal address (shares the populated billing address) ----
             this.companyStreet1 = ko.observable(pf.street1 || '');
@@ -281,7 +331,10 @@ define([
 
             // ---- Step 2: payment ----
             this.currentStep = ko.observable('billing'); // 'billing' | 'payment'
-            this.acceptedTerms = ko.observable(false);
+            // CMS block (identifier "checkout-sidebar-text") rendered in place of
+            // the old Terms & Conditions checkbox — informational only, so
+            // acceptance is no longer required to place the order.
+            this.declarationsHtml = this.declarationsHtml || '';
             this.paymentChoice = ko.observable(''); // 'card' | 'bank'
 
             // UI state.
@@ -322,11 +375,29 @@ define([
                 return self.isB2C() && self.programmeIsSingapore
                     && residencyExcluded.indexOf(self.country()) === -1;
             });
+            // Blocks "Proceed to payment" until the VAT Intracommunity Number
+            // field (when it's actually shown — B2B + FR/EU + Tax Registered)
+            // has come back "valid" from the live VIES check. Only applies on
+            // stores where that check is enabled at all (vatValidationEnabled) —
+            // otherwise the button would never enable on stores that never
+            // asked for live VAT validation in the first place.
+            this.vatBlocksProceed = ko.computed(function () {
+                if (!self.isB2B() || !self.vatValidationEnabled) { return false; }
+                var vatField = self.dynamicFields().filter(function (f) { return f.isVat; })[0];
+                return !!vatField && vatField.vatStatus() !== 'valid';
+            });
             this.cardMethod = this.paymentConfig.card || null;
             this.bankMethod = this.paymentConfig.bank || null;
-            // Pay Now enabled only once the T&C is accepted and a method chosen.
+            this.isBraintreeSelected = ko.computed(function () {
+                return (self.paymentChoice() || '').indexOf('braintree') !== -1;
+            });
+            this.hasAnyPaymentMethod = ko.computed(function () {
+                return !!(self.cardMethod || self.bankMethod || self.otherMethods().length);
+            });
+            // Pay Now enabled once a payment method is chosen (no T&C acceptance
+            // required — the Declarations card is informational only now).
             this.canPay = ko.computed(function () {
-                return self.acceptedTerms() && !!self.paymentChoice() && !self.isLoading();
+                return !!self.paymentChoice() && !self.isLoading();
             });
         },
 
@@ -337,11 +408,18 @@ define([
                 self.renderFields();
             });
             this.taxStatus.subscribe(function () { self.renderFields(); });
-            this.financingProfile.subscribe(function () { self.globalError(''); });
-            // Mount the relevant Stripe element when the payment choice changes.
+            // When switching B2C ↔ B2B: refresh dynamic fields and reset the GST
+            // declaration so stale B2B state never leaks into B2C validation.
+            this.financingProfile.subscribe(function () {
+                self.globalError('');
+                self.renderFields();
+                self.gstDeclaration('');
+            });
+            // Mount the relevant payment element when the choice changes.
             this.paymentChoice.subscribe(function (choice) {
                 if (choice === 'card') { self._mountCard(); }
                 if (choice === 'bank') { self._mountBank(); }
+                if (choice && choice.indexOf('braintree') !== -1) { self._mountBraintree(); }
             });
         },
 
@@ -353,7 +431,8 @@ define([
                 self.regionsList(regionCache[countryCode]);
                 return;
             }
-            $.ajax({url: '/rest/V1/directory/countries/' + countryCode, method: 'GET', dataType: 'json'})
+            var restBase = (self.endpointUrls && self.endpointUrls.restBase) || '/rest/V1/';
+            $.ajax({url: restBase + 'directory/countries/' + countryCode, method: 'GET', dataType: 'json'})
                 .done(function (data) {
                     var regions = (data && data.available_regions) || [];
                     var list = regions.map(function (r) { return {value: r.code, label: r.name}; });
@@ -442,19 +521,97 @@ define([
                     type: def.type,
                     isFile: def.type === 'file' || def.type === 'file_req',
                     required: def.type === 'req' || def.type === 'file_req',
-                    value: self.valueFor(def.code)
+                    value: self.valueFor(def.code),
+                    // VAT Intracommunity Number only: live EU VIES validation state.
+                    isVat: def.code === 'vat_intracommunity',
+                    vatStatus: ko.observable('idle'), // idle | checking | valid | invalid | unknown
+                    vatMessage: ko.observable('')
                 };
             }));
 
-            // France: auto-extract SIREN (first 9 digits) from SIRET, and look up
-            // the legal name from INSEE once the full 14-digit SIRET is entered.
+            // The VAT Intracommunity field validates against a specific country
+            // (see validateVatField), so a previously "valid" result becomes stale
+            // the moment the Country dropdown changes — a VAT number valid for
+            // France isn't necessarily valid for Germany. renderFields() already
+            // resets that field's status to idle above; re-run the check
+            // immediately here (rather than waiting for the user to blur the
+            // field again) whenever it's already got a value.
+            var vatField = this.dynamicFields().filter(function (f) { return f.isVat; })[0];
+            if (vatField && vatField.value() && this.vatValidationEnabled) {
+                this.validateVatField(vatField);
+            }
+
+            // France: auto-extract SIREN (first 9 digits) from SIRET, look up
+            // the legal name from INSEE once the full 14-digit SIRET is entered,
+            // and validate the checksum as soon as 14 digits are present.
             if (!this._sirenBound) {
                 this.siret.subscribe(function (val) {
                     if (val && val.length >= 9) { self.siren(val.substring(0, 9)); }
                     if (val && val.length === 14) { self.lookupCompany(val); }
+
+                    if (!val) {
+                        self.siretStatus('idle');
+                        self.siretMessage('');
+                    } else if (val.length < 14) {
+                        // Still typing — don't flag as invalid mid-entry.
+                        self.siretStatus('idle');
+                        self.siretMessage('');
+                    } else if (isValidSiret(val)) {
+                        self.siretStatus('valid');
+                        self.siretMessage($t('Valid SIRET number.'));
+                    } else {
+                        self.siretStatus('invalid');
+                        self.siretMessage($t('Invalid SIRET number.'));
+                    }
                 });
                 this._sirenBound = true;
             }
+        },
+
+        /**
+         * Validate the VAT Intracommunity Number field (on blur) against the EU
+         * VIES service, via Magento's own built-in VAT validator
+         * (Magento\Customer\Model\Vat — the same one Ewave_CustomerVat's
+         * customer-group switch relies on for auto tax-group assignment).
+         * Gated by vatValidationEnabled (mirrors that same module's own
+         * "Enable Automatic Assignment to Customer Group" store setting).
+         */
+        validateVatField: function (field) {
+            var self = this;
+            var vatNumber = (field.value() || '').trim();
+            if (!field.isVat || !this.vatValidationEnabled || !this.endpointUrls.validateVat) { return; }
+            if (vatNumber === '') {
+                field.vatStatus('idle');
+                field.vatMessage('');
+                return;
+            }
+            field.vatStatus('checking');
+            field.vatMessage($t('Validating…'));
+            $.ajax({
+                url: this.endpointUrls.validateVat,
+                method: 'POST',
+                dataType: 'json',
+                data: {
+                    form_key: this.formKeyValue,
+                    country_id: this.country(),
+                    vat_number: vatNumber
+                }
+            }).done(function (res) {
+                if (!res || !res.success) {
+                    field.vatStatus('unknown');
+                    field.vatMessage((res && res.message) || $t('Unable to validate the VAT number right now.'));
+                    return;
+                }
+                if (res.valid === null) {
+                    field.vatStatus('unknown');
+                } else {
+                    field.vatStatus(res.valid ? 'valid' : 'invalid');
+                }
+                field.vatMessage(res.message || '');
+            }).fail(function () {
+                field.vatStatus('unknown');
+                field.vatMessage($t('Unable to validate the VAT number right now.'));
+            });
         },
 
         /** INSEE (FR) / VIES (EU) company name auto-fill. */
@@ -506,7 +663,7 @@ define([
                 if (!this.jobIndustry()) { errs.jobIndustry = true; }
                 if (!this.companyStreet1()) { errs.companyStreet1 = true; }
                 if (!this.companyCity()) { errs.companyCity = true; }
-                if (this.isFrance() && !this.siret()) { errs.siret = true; }
+                if (this.isFrance() && !isValidSiret(this.siret())) { errs.siret = true; }
                 this.dynamicFields().forEach(function (f) {
                     if (f.required && !f.value()) { errs['dyn_' + f.code] = true; }
                 });
@@ -523,7 +680,8 @@ define([
             var data = {
                 form_key: this.formKeyValue,
                 financing_profile: this.financingProfile(),
-                country_id: this.country() || 'FR'
+                country_id: this.country() || 'FR',
+                peoplesoft_id: this._peoplesoftId || ''
             };
 
             if (this.isB2C()) {
@@ -600,8 +758,15 @@ define([
                         var current = self.summaryData();
                         self.summaryData({items: current.items, totals: res.totals});
                     }
+                    // Refresh payment methods now that billing address is set on the
+                    // quote — some methods (e.g. COD) only become available once a
+                    // billing country is known.
+                    if (res.payment_methods) {
+                        self.otherMethods(res.payment_methods.others || []);
+                    }
                     self.currentStep('payment');
                     self._initStripe();
+                    self._initOtherPayments();
                     window.scrollTo({top: 0, behavior: 'smooth'});
                 } else {
                     self.globalError((res && res.message) || $t('Unable to save billing data.'));
@@ -707,46 +872,80 @@ define([
             };
         },
 
-        /** "Pay Now": create the Stripe payment method, place the order, run 3DS. */
+        /** Place the order — dispatches to Stripe, Braintree, or offline flow. */
         placeOrder: function () {
             var self = this;
             this.globalError('');
-            if (!this.acceptedTerms()) {
-                this.globalError($t('Please accept the Terms and Conditions.'));
-                return;
-            }
             var choice = this.paymentChoice();
             if (!choice) {
                 this.globalError($t('Please select a payment method.'));
                 return;
             }
 
-            var elements = choice === 'card' ? this._cardElements : this._bankElements;
-            var methodCode = choice === 'card'
-                ? (this.cardMethod && this.cardMethod.code)
-                : (this.bankMethod && this.bankMethod.code);
-
-            if (!elements || !methodCode) {
-                this.globalError($t('The payment form is not ready. Please try again.'));
+            // ---- Stripe card / bank ----
+            if (choice === 'card' || choice === 'bank') {
+                var elements = choice === 'card' ? this._cardElements : this._bankElements;
+                var methodCode = choice === 'card'
+                    ? (this.cardMethod && this.cardMethod.code)
+                    : (this.bankMethod && this.bankMethod.code);
+                if (!elements || !methodCode) {
+                    this.globalError($t('The payment form is not ready. Please try again.'));
+                    return;
+                }
+                this.isLoading(true);
+                elements.submit().then(function () {
+                    window.stripe.stripeJs.createPaymentMethod({
+                        elements: elements,
+                        params: {billing_details: self._billingDetails()}
+                    }).then(function (result) {
+                        if (result.error) {
+                            self.isLoading(false);
+                            return self.globalError(result.error.message);
+                        }
+                        self._placeOrderOnServer(methodCode, result.paymentMethod.id);
+                    });
+                }, function (result) {
+                    self.isLoading(false);
+                    self.globalError((result && result.error && result.error.message)
+                        || $t('A payment submission error has occurred.'));
+                });
                 return;
             }
 
-            this.isLoading(true);
-            elements.submit().then(function () {
-                window.stripe.stripeJs.createPaymentMethod({
-                    elements: elements,
-                    params: {billing_details: self._billingDetails()}
-                }).then(function (result) {
-                    if (result.error) {
+            // ---- Braintree (card, PayPal, etc.) ----
+            if (choice.indexOf('braintree') !== -1) {
+                if (!this._braintreeInstance) {
+                    this.globalError($t('The payment form is not ready. Please try again.'));
+                    return;
+                }
+                this.isLoading(true);
+                // The gateway is configured to always require 3D Secure (see
+                // payment/braintree/always_request_3ds), so every nonce must be
+                // verified with the order amount or Braintree rejects the
+                // transaction with "Gateway Rejected: three_d_secure".
+                var grandRaw = (self.summaryData().totals || {}).grandRaw || '0.00';
+                this._braintreeInstance.requestPaymentMethod({
+                    threeDSecure: {amount: grandRaw}
+                }, function (err, payload) {
+                    if (err) {
                         self.isLoading(false);
-                        return self.globalError(result.error.message);
+                        self.globalError(err.message || $t('A payment error has occurred.'));
+                        return;
                     }
-                    self._placeOrderOnServer(methodCode, result.paymentMethod.id);
+                    self._placeOrderWithData({
+                        form_key: self.formKeyValue,
+                        payment_method: choice,
+                        payment_method_nonce: payload.nonce
+                    });
                 });
-            }, function (result) {
-                self.isLoading(false);
-                self.globalError((result && result.error && result.error.message)
-                    || $t('A payment submission error has occurred.'));
+                return;
+            }
+
+            // ---- Offline / other Magento-native methods ----
+            this.isLoading(true);
+            this._placeOrderWithData({
+                form_key: this.formKeyValue,
+                payment_method: choice
             });
         },
 
@@ -792,6 +991,205 @@ define([
 
         _redirectSuccess: function () {
             window.location.href = this.endpointUrls.success;
+        },
+
+        /**
+         * Open the Proforma Invoice ("Quotation") PDF in a new tab. The
+         * Insead_ProformaInvoice controller pulls billing data straight from
+         * the checkout-session quote, which Save.php has already persisted by
+         * the time this button is visible (payment step), so no billing data
+         * needs to be passed here.
+         */
+        openProformaQuotation: function () {
+            if (this.endpointUrls.proformaPdf) {
+                window.open(this.endpointUrls.proformaPdf, '_blank');
+            }
+        },
+
+        /**
+         * Apply (or, given an empty field, remove) a native Magento Sales Rule
+         * coupon code on the quote via Insead_CustomCheckout's own coupon/apply
+         * endpoint, which wraps Magento\Quote\Api\CouponManagementInterface —
+         * the same service the native cart/checkout coupon box uses, so price
+         * rule validation, usage limits and store scoping behave identically.
+         */
+        applyCouponCode: function () {
+            var self = this;
+            if (this.couponLoading()) { return; }
+
+            this.couponLoading(true);
+            this.couponMessage('');
+            $.ajax({
+                url: this.endpointUrls.applyCoupon,
+                method: 'POST',
+                dataType: 'json',
+                data: {form_key: this.formKeyValue, coupon_code: this.couponCode()}
+            }).done(function (res) {
+                self.couponLoading(false);
+                self.couponError(!(res && res.success));
+                self.couponMessage((res && res.message) || $t('Unable to apply the coupon code.'));
+                if (res && res.success && res.totals) {
+                    var current = self.summaryData();
+                    // Coupon discounts get allocated across line items server-side,
+                    // so use the refreshed items (OFFERING %) when present.
+                    self.summaryData({items: res.items || current.items, totals: res.totals});
+                    self.couponCode(res.totals.couponCode || '');
+                }
+            }).fail(function () {
+                self.couponLoading(false);
+                self.couponError(true);
+                self.couponMessage($t('Unable to apply the coupon code.'));
+            });
+        },
+
+        // ---- Non-Stripe payment initialisation --------------------------
+
+        /**
+         * Auto-select the first available non-Stripe, non-Braintree method when
+         * Stripe is not configured for this store. Braintree is intentionally
+         * skipped here because mounting the Drop-in is async (CDN script + token
+         * fetch); auto-selection on page load would fire _mountBraintree() before
+         * the user has interacted, causing "Request does not match any route"
+         * errors on stores that don't have the Braintree REST endpoint available.
+         * Braintree methods still appear in the list and mount correctly when the
+         * user explicitly clicks them.
+         */
+        _initOtherPayments: function () {
+            if (this.stripeConfig && this.stripeConfig.initParams) { return; }
+            if (this.paymentChoice()) { return; }
+            var others = this.otherMethods();
+            // Prefer offline / native methods for auto-selection.
+            for (var i = 0; i < others.length; i++) {
+                if (others[i].code.indexOf('braintree') === -1
+                        && others[i].code.indexOf('paypal') === -1) {
+                    this.paymentChoice(others[i].code);
+                    return;
+                }
+            }
+            // Only gateway (braintree / paypal) methods remain — select the first
+            // but don't auto-mount the Drop-in; the subscribe handler will call
+            // _mountBraintree() only if the user actually clicks the option.
+            // We do NOT set paymentChoice here; let the user pick.
+        },
+
+        /**
+         * Mount the Braintree Drop-in UI inside #insead-braintree-dropin.
+         * Token is generated server-side (no REST endpoint exists for it).
+         *
+         * Re-mount safe: the template wraps the container in <!-- ko if: isBraintreeSelected() -->,
+         * so KnockoutJS destroys and re-creates the div every time the user switches
+         * away and back. We detect the stale instance (container is empty after KO
+         * re-creates it), teardown the old instance, then remount into the fresh div.
+         */
+        _mountBraintree: function () {
+            var self = this;
+            if (this._braintreeMounting) { return; }
+
+            // Detect stale instance: _braintreeInstance exists but the container was
+            // removed and re-created by KO (empty div). Teardown then remount.
+            if (this._braintreeInstance) {
+                var container = document.getElementById('insead-braintree-dropin');
+                if (!container || !container.firstChild) {
+                    var stale = this._braintreeInstance;
+                    this._braintreeInstance = null;
+                    stale.teardown(function () { self._mountBraintree(); });
+                }
+                // Container still has Drop-in content — already mounted.
+                return;
+            }
+
+            this._braintreeMounting = true;
+            this.braintreeLoading(true);
+
+            var clientToken = this.braintreeClientToken || null;
+            if (!clientToken) {
+                this._braintreeMounting = false;
+                this.braintreeLoading(false);
+                this.globalError($t('This payment method is not available. Please select another payment option.'));
+                return;
+            }
+
+            self._loadBraintreeDropIn(function () {
+                if (!window.braintree || !window.braintree.dropin) {
+                    self._braintreeMounting = false;
+                    self.braintreeLoading(false);
+                    self.globalError($t('Unable to load the payment library. Please refresh and try again.'));
+                    return;
+                }
+                window.braintree.dropin.create(
+                    {
+                        authorization: clientToken,
+                        container: '#insead-braintree-dropin',
+                        // Restrict the Drop-in to credit/debit card only.
+                        // Other Braintree payment types (PayPal, Apple Pay,
+                        // Google Pay, Venmo) each have their own Magento payment
+                        // method code and their own UI — they must not also appear
+                        // inside the Drop-in widget.
+                        paymentOptionPriority: ['card'],
+                        // Required so requestPaymentMethod({threeDSecure: {...}})
+                        // below can run the 3DS challenge the gateway demands.
+                        threeDSecure: true
+                    },
+                    function (err, instance) {
+                        self._braintreeMounting = false;
+                        self.braintreeLoading(false);
+                        if (err) {
+                            self.globalError($t('Unable to load payment form: ') + err.message);
+                            return;
+                        }
+                        self._braintreeInstance = instance;
+                    }
+                );
+            });
+        },
+
+        /** Dynamically append the Braintree Drop-in script once and fire the callback. */
+        _loadBraintreeDropIn: function (callback) {
+            if (window.braintree && window.braintree.dropin) {
+                setTimeout(callback, 0);
+                return;
+            }
+            // The Braintree Drop-in is a UMD bundle: it checks for window.define
+            // (RequireJS) and tries to register as an anonymous AMD module.  Magento's
+            // RequireJS throws "Mismatched anonymous define()" for any AMD define()
+            // called outside its own module-loading flow, which crashes the page.
+            // Temporarily hide define/require so the bundle falls through to the
+            // plain global (window.braintree) export path instead.
+            var savedDefine = window.define;
+            window.define = undefined;
+            var s = document.createElement('script');
+            s.src = 'https://js.braintreegateway.com/web/dropin/1.43.0/js/dropin.min.js';
+            s.onload = function () {
+                window.define = savedDefine;
+                setTimeout(callback, 0);
+            };
+            s.onerror = function () {
+                window.define = savedDefine;
+                setTimeout(callback, 0);
+            };
+            document.head.appendChild(s);
+        },
+
+        /**
+         * Generic order placement for Braintree nonce and offline methods.
+         * Stripe uses _placeOrderOnServer() (with 3DS action handling).
+         */
+        _placeOrderWithData: function (postData) {
+            var self = this;
+            $.ajax({
+                url: this.endpointUrls.place,
+                method: 'POST', dataType: 'json', data: postData
+            }).done(function (res) {
+                if (res && res.success) {
+                    window.location.href = res.redirect || self.endpointUrls.success;
+                } else {
+                    self.isLoading(false);
+                    self.globalError((res && res.message) || $t('Unable to place the order.'));
+                }
+            }).fail(function () {
+                self.isLoading(false);
+                self.globalError($t('Unable to place the order. Please try again.'));
+            });
         }
     });
 });

@@ -27,7 +27,8 @@
             "reg_type_value": true,
             "credit_consumption_code": true,
             "gst_declaration": true,
-            "residency_declaration": true
+            "residency_declaration": true,
+            "peoplesoft_id": true
         }
     },
     "sales_order": {
@@ -58,7 +59,13 @@
             "reg_type_value": true,
             "credit_consumption_code": true,
             "gst_declaration": true,
-            "residency_declaration": true
+            "residency_declaration": true,
+            "peoplesoft_id": true
+        }
+    },
+    "customer_entity": {
+        "column": {
+            "peoplesoft_id": true
         }
     },
     "insead_mg_organization": {
@@ -83,13 +90,17 @@
             "tracking_id": true,
             "insert_date": true,
             "update_date": true,
-            "batch_date": true
+            "batch_date": true,
+            "gender": true,
+            "nationality": true
         },
         "constraint": {
-            "PK_INSEAD_MG_ORGANIZATION": true
+            "PK_INSEAD_MG_ORGANIZATION": true,
+            "PRIMARY": true
         },
         "index": {
-            "IDX_INSEAD_MG_ORGANIZATION_NUMBERS": true
+            "IDX_INSEAD_MG_ORGANIZATION_NUMBERS": true,
+            "IDX_8860305210B95B34F8BDDE13A1535D98": true
         }
     },
     "insead_company_address": {
@@ -113,10 +124,12 @@
             "updated_at": true
         },
         "constraint": {
-            "PK_INSEAD_COMPANY_ADDRESS": true
+            "PK_INSEAD_COMPANY_ADDRESS": true,
+            "PRIMARY": true
         },
         "index": {
-            "IDX_INSEAD_COMPANY_ADDRESS_ORG_DEFAULT": true
+            "IDX_INSEAD_COMPANY_ADDRESS_ORG_DEFAULT": true,
+            "INSEAD_COMPANY_ADDRESS_ORGANIZATION_SYSTEM_ID_IS_DEFAULT": true
         }
     },
     "insead_company_customer": {
@@ -128,10 +141,13 @@
         },
         "constraint": {
             "PK_INSEAD_COMPANY_CUSTOMER": true,
-            "UNQ_INSEAD_COMPANY_CUSTOMER_PAIR": true
+            "UNQ_INSEAD_COMPANY_CUSTOMER_PAIR": true,
+            "PRIMARY": true,
+            "INSEAD_COMPANY_CUSTOMER_CUSTOMER_ID_ORGANIZATION_SYSTEM_ID": true
         },
         "index": {
-            "IDX_INSEAD_COMPANY_CUSTOMER_ORG": true
+            "IDX_INSEAD_COMPANY_CUSTOMER_ORG": true,
+            "INSEAD_COMPANY_CUSTOMER_ORGANIZATION_SYSTEM_ID": true
         }
     }
 }

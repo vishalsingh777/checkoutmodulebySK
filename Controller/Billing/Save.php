@@ -7,12 +7,18 @@ use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Customer\Api\CustomerRepositoryInterface;
+use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Data\Form\FormKey\Validator as FormKeyValidator;
 use Magento\Checkout\Model\Session as CheckoutSession;
 use Magento\Customer\Model\Session as CustomerSession;
+use Magento\Eav\Model\Config as EavConfig;
 use Magento\Framework\Pricing\PriceCurrencyInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Payment\Model\MethodList;
+use Magento\Store\Model\ScopeInterface;
 use Insead\CustomCheckout\Model\MgOrganizationWriter;
 use Insead\CustomCheckout\Model\CompanyProfile;
 use Insead\CustomCheckout\Model\CustomerAddressSaver;
@@ -36,6 +42,7 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         'invoice_recipient_firstname', 'invoice_recipient_lastname', 'invoice_email',
         'reg_type_label', 'reg_type_value', 'gender', 'nationality', 'po_number',
         'job_industry', 'credit_consumption_code', 'gst_declaration', 'residency_declaration',
+        'peoplesoft_id',
     ];
 
     public function __construct(
@@ -48,6 +55,11 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         private readonly CompanyProfile $companyProfile,
         private readonly CustomerAddressSaver $customerAddressSaver,
         private readonly PriceCurrencyInterface $priceCurrency,
+        private readonly ResourceConnection $resourceConnection,
+        private readonly CustomerRepositoryInterface $customerRepository,
+        private readonly EavConfig $eavConfig,
+        private readonly MethodList $methodList,
+        private readonly ScopeConfigInterface $scopeConfig,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -158,6 +170,53 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
             // from before the user entered their billing address (often 0).
             $quote->collectTotals()->save();
 
+            // Persist peoplesoft_id and gender on the customer record so
+            // they appear in the admin customer account info page and are
+            // available on every future checkout.
+            if ($this->customerSession->isLoggedIn()) {
+                $customerId = (int) $this->customerSession->getCustomerId();
+                $psId       = trim((string) ($p['peoplesoft_id'] ?? ''));
+                $genderStr  = strtolower(trim((string) ($p['gender'] ?? '')));
+
+                try {
+                    $conn = $this->resourceConnection->getConnection();
+
+                    // Write flat column for our own DB queries.
+                    if ($psId !== '') {
+                        $conn->update(
+                            $this->resourceConnection->getTableName('customer_entity'),
+                            ['peoplesoft_id' => $psId],
+                            ['entity_id = ?' => $customerId]
+                        );
+                    }
+
+                    // Write EAV attributes so the admin customer account page
+                    // reflects the latest values from checkout.
+                    $customerEav = $this->customerRepository->getById($customerId);
+                    $dirty = false;
+
+                    if ($psId !== '') {
+                        $customerEav->setCustomAttribute('peoplesoft_id', $psId);
+                        $dirty = true;
+                    }
+
+                    // Map our 'male'/'female' string to Magento's gender option ID.
+                    if ($genderStr !== '') {
+                        $genderOptionId = $this->resolveGenderOptionId($genderStr);
+                        if ($genderOptionId !== null) {
+                            $customerEav->setGender($genderOptionId);
+                            $dirty = true;
+                        }
+                    }
+
+                    if ($dirty) {
+                        $this->customerRepository->save($customerEav);
+                    }
+                } catch (\Throwable $e) {
+                    $this->logger->error('INSEAD customer attribute save: ' . $e->getMessage());
+                }
+            }
+
             try {
                 $this->mgOrganizationWriter->saveFromQuote($quote);
             } catch (\Throwable $e) {
@@ -212,10 +271,14 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
             return $result->setData([
                 'success' => true,
                 'totals' => [
-                    'subtotal' => $this->priceCurrency->format((float) $quote->getSubtotal(), false),
-                    'tax'      => $this->priceCurrency->format((float) $taxAddress->getTaxAmount(), false),
-                    'grand'    => $this->priceCurrency->format((float) $quote->getGrandTotal(), false),
+                    'subtotal'   => $this->priceCurrency->format((float) $quote->getSubtotal(), false),
+                    'discount'   => $this->priceCurrency->format(abs((float) $taxAddress->getDiscountAmount()), false),
+                    'tax'        => $this->priceCurrency->format((float) $taxAddress->getTaxAmount(), false),
+                    'grand'      => $this->priceCurrency->format((float) $quote->getGrandTotal(), false),
+                    'grandRaw'   => number_format((float) $quote->getGrandTotal(), 2, '.', ''),
+                    'couponCode' => (string) $quote->getCouponCode(),
                 ],
+                'payment_methods' => $this->collectPaymentMethods($quote),
             ]);
         } catch (\Throwable $e) {
             $this->logger->error('INSEAD checkout save: ' . $e->getMessage());
@@ -224,6 +287,108 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 'message' => __('Unable to save billing data.'),
             ]);
         }
+    }
+
+    /**
+     * Collect available payment methods AFTER the billing address has been set
+     * on the quote. This returns a more complete list than the page-load snapshot
+     * (some methods require a billing country to decide availability).
+     *
+     * @return array{card:?array,bank:?array,others:array}
+     */
+    private function collectPaymentMethods(\Magento\Quote\Model\Quote $quote): array
+    {
+        $available = [];
+        try {
+            $storeId = (int) $quote->getStoreId();
+
+            // Mirrors Block/Checkout.php: validated methods only, then offline
+            // methods re-added for virtual carts.
+            foreach ($this->methodList->getAvailableMethods($quote) as $method) {
+                $available[$method->getCode()] = (string) $method->getTitle();
+            }
+            if ($quote->isVirtual()) {
+                foreach (['cashondelivery', 'checkmo', 'banktransfer', 'purchaseorder'] as $code) {
+                    if (!isset($available[$code]) && $this->scopeConfig->isSetFlag(
+                        'payment/' . $code . '/active',
+                        ScopeInterface::SCOPE_STORE,
+                        $storeId
+                    )) {
+                        $title = (string) $this->scopeConfig->getValue(
+                            'payment/' . $code . '/title',
+                            ScopeInterface::SCOPE_STORE,
+                            $storeId
+                        );
+                        if ($title !== '') {
+                            $available[$code] = $title;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('INSEAD save payment methods: ' . $e->getMessage());
+        }
+
+        $stripeCard = 'stripe_payments';
+        $stripeBank = 'stripe_payments_bank_transfers';
+        $others = [];
+        foreach ($available as $code => $title) {
+            if ($code === $stripeCard || $code === $stripeBank) {
+                continue;
+            }
+            // Skip all other stripe_* sub-methods (Apple Pay, Google Pay Express,
+            // etc.) — they render inside the Payment Element automatically.
+            if (strncmp($code, 'stripe_', 7) === 0) {
+                continue;
+            }
+            // Skip Braintree sub-methods (braintree_cc_vault, braintree_paypal,
+            // braintree_googlepay, etc.). The Drop-in renders all types internally.
+            if ($code !== 'braintree' && strncmp($code, 'braintree', 9) === 0) {
+                continue;
+            }
+            $others[] = ['code' => $code, 'title' => $title];
+        }
+
+        return [
+            'card'   => isset($available[$stripeCard])
+                ? ['code' => $stripeCard, 'title' => $available[$stripeCard]] : null,
+            'bank'   => isset($available[$stripeBank])
+                ? ['code' => $stripeBank, 'title' => $available[$stripeBank]] : null,
+            'others' => $others,
+        ];
+    }
+
+    /**
+     * Returns Magento's EAV option ID for a gender string sent by the checkout
+     * JS ('male', 'female', 'nonbinary', 'prefer_not'). Looks up the live option
+     * table so we don't hardcode IDs that vary per installation. Returns null
+     * when the value is unknown.
+     */
+    private function resolveGenderOptionId(string $genderStr): ?int
+    {
+        static $map = null;
+        if ($map === null) {
+            $map = [];
+            try {
+                $attribute = $this->eavConfig->getAttribute(\Magento\Customer\Model\Customer::ENTITY, 'gender');
+                foreach ($attribute->getSource()->getAllOptions(false) as $option) {
+                    $map[strtolower((string) $option['label'])] = (int) $option['value'];
+                }
+            } catch (\Throwable $e) {
+                $this->logger->error('INSEAD gender option lookup: ' . $e->getMessage());
+            }
+        }
+
+        // The JS gender <select> uses short codes that differ from the EAV label
+        // strings: 'nonbinary' → 'non binary', 'prefer_not' → 'prefer not to answer'.
+        // Normalize before the map lookup so all four options save correctly.
+        $jsToLabel = [
+            'nonbinary'  => 'non binary',
+            'prefer_not' => 'prefer not to answer',
+        ];
+        $lookup = $jsToLabel[$genderStr] ?? $genderStr;
+
+        return $map[$lookup] ?? null;
     }
 
     public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException

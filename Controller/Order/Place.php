@@ -46,9 +46,10 @@ class Place implements HttpPostActionInterface, CsrfAwareActionInterface
             if ($paymentMethod === '') {
                 return $result->setData(['success' => false, 'message' => __('Please select a payment method.')]);
             }
-            // Stripe Payment Element id (pm_xxx) created client-side; the Stripe
-            // method's assignData() maps it to additional_information['token'].
+            // Stripe: pm_xxx from Payment Element (assignData maps it to additional_information['token']).
             $paymentMethodId = (string) $this->request->getParam('payment_method_id');
+            // Braintree: nonce from Drop-in UI.
+            $paymentMethodNonce = (string) $this->request->getParam('payment_method_nonce');
 
             $quote = $this->checkoutSession->getQuote();
             if (!$quote || !$quote->getId() || !$quote->hasItems()) {
@@ -74,10 +75,14 @@ class Place implements HttpPostActionInterface, CsrfAwareActionInterface
             }
 
             $paymentData = ['method' => $paymentMethod];
-            if ($paymentMethodId !== '') {
-                // Routed through the gateway's assignData() → additional_information['token'].
+            if ($paymentMethodNonce !== '') {
+                // Braintree Drop-in nonce — mapped by the Braintree gateway's assignData().
+                $paymentData['additional_data'] = ['payment_method_nonce' => $paymentMethodNonce];
+            } elseif ($paymentMethodId !== '') {
+                // Stripe Payment Element id — routed through assignData() as token.
                 $paymentData['additional_data'] = ['payment_method' => $paymentMethodId];
             }
+            // Offline / other methods: no additional_data needed.
             $quote->getPayment()->importData($paymentData);
             $quote->collectTotals()->save();
 

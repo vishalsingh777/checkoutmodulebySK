@@ -2,7 +2,7 @@
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
     <body>
-        <referenceContainer name="order_info">
+        <referenceContainer name="order_additional_info">
             <block class="Insead\CustomCheckout\Block\Adminhtml\OrderInfo"
                    name="insead.order.einvoicing"
                    template="Insead_CustomCheckout::order/einvoicing.phtml"/>

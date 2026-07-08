@@ -37,6 +37,7 @@
         <column xsi:type="varchar" name="credit_consumption_code" nullable="true" length="100" comment="Credit Consumption Code"/>
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
+        <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
     </table>
     <table name="sales_order">
         <column xsi:type="varchar" name="gender" nullable="true" length="32" comment="Customer Gender"/>
@@ -66,6 +67,10 @@
         <column xsi:type="varchar" name="credit_consumption_code" nullable="true" length="100" comment="Credit Consumption Code"/>
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
+        <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
+    </table>
+    <table name="customer_entity">
+        <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
     </table>
     <table name="insead_mg_organization" resource="default" engine="innodb" comment="Flat organization export table, mirrors BI bronze.mg_organization. One row per customer_id (guests are not written).">
         <column xsi:type="int" name="organization_system_id" nullable="false" unsigned="true" comment="Magento customer_id (customer_entity.entity_id). Guest orders are never written here."/>
