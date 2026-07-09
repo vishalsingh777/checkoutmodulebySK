@@ -29,6 +29,9 @@
             "gst_declaration": true,
             "residency_declaration": true,
             "peoplesoft_id": true
+        },
+        "insead_billing_confirmed": {
+            "column": true
         }
     },
     "sales_order": {

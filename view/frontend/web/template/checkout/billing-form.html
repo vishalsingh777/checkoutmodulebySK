@@ -1,12 +1,15 @@
 <div class="insead-checkout">
 
     <!-- ===================== Progress stepper ===================== -->
+    <!-- "Payment" is no longer rendered by this component — after Continue,
+         the browser is redirected to genuine native Magento checkout for
+         that step, so it's shown here only as an upcoming step, never active. -->
     <ol class="insead-stepper">
         <li class="insead-stepper__step _done"><span class="insead-stepper__num">1</span> Cart</li>
-        <li class="insead-stepper__step" data-bind="css: {'_active': currentStep() === 'billing', '_done': currentStep() === 'payment'}">
+        <li class="insead-stepper__step _active">
             <span class="insead-stepper__num">2</span> Billing Information
         </li>
-        <li class="insead-stepper__step" data-bind="css: {'_active': currentStep() === 'payment'}">
+        <li class="insead-stepper__step">
             <span class="insead-stepper__num">3</span> Payment
         </li>
     </ol>
@@ -15,9 +18,9 @@
     <div class="insead-alert" data-bind="visible: globalError(), text: globalError()"></div>
 
     <!-- ============================================================= -->
-    <!-- STEP 1 — BILLING INFORMATION                                  -->
+    <!-- BILLING INFORMATION                                            -->
     <!-- ============================================================= -->
-    <div data-bind="visible: currentStep() === 'billing'">
+    <div>
         <div class="insead-card">
 
             <!-- Selector box -->
@@ -117,6 +120,7 @@
                     <h3 class="insead-subhead">Declaration</h3>
                     <p>I, the undersigned, certify that my usual place of residence is outside Singapore,
                        and that I will be outside Singapore at the time the services are performed.</p>
+                    <p><strong>Once the invoice has been issued, no GST letter will be accepted, and no amendments will be allowed.</strong></p>
                     <p class="insead-hint">(Please tick the relevant box below)</p>
                     <label class="insead-radio">
                         <input type="radio" name="insead_residency" value="agree" data-bind="checked: residencyDeclaration"/>
@@ -304,144 +308,23 @@
                 </div>
                 <!-- /ko -->
             </div>
-
-            <!-- Actions -->
-            <div class="insead-actions">
-                <a class="insead-link" data-bind="attr: {href: endpointUrls.cart}">Back</a>
-                <span class="insead-actions__right">
-                    <a class="insead-link" data-bind="click: saveBilling">Save</a>
-                    <button class="insead-btn" data-bind="click: proceedToPayment, disable: isLoading() || vatBlocksProceed()">
-                        <span data-bind="visible: !isLoading()">Proceed to payment</span>
-                        <span data-bind="visible: isLoading()">Saving…</span>
-                    </button>
-                </span>
-            </div>
         </div>
-    </div>
 
-    <!-- ============================================================= -->
-    <!-- STEP 2 — PAYMENT                                              -->
-    <!-- ============================================================= -->
-    <div data-bind="visible: currentStep() === 'payment'">
-        <h2 class="insead-title">Payment</h2>
-        <div class="insead-pay-grid">
-
-            <!-- Left column -->
-            <div class="insead-pay-main">
-                <div class="insead-card">
-                    <h3 class="insead-subhead">Enter Billing Information</h3>
-                    <p class="insead-bill-summary">
-                        <strong data-bind="text: isB2B() ? companyLegalName() : (b2cFirstName() + ' ' + b2cLastName())"></strong><br/>
-                        <span data-bind="text: (isB2B() ? companyStreet1() : street1())"></span>
-                        <span data-bind="text: (isB2B() ? companyStreet2() : street2())"></span><br/>
-                        <span data-bind="text: isB2B() ? companyCity() : city()"></span>
-                    </p>
-                </div>
-
-                <!-- Discount code (native Magento Sales Rule coupon, website/store scoped) -->
-                <div class="insead-card">
-                    <h3 class="insead-subhead">Enter discount code</h3>
-                    <input type="text" class="insead-coupon-input" placeholder="Enter discount code"
-                           data-bind="value: couponCode, valueUpdate: 'input'"/>
-                    <p class="insead-coupon-msg" data-bind="visible: couponMessage(), text: couponMessage(),
-                       css: {'_error': couponError()}"></p>
-                    <button type="button" class="insead-btn _outline" data-bind="click: applyCouponCode, disable: couponLoading()">
-                        <span data-bind="visible: !couponLoading()">Apply Discount Code</span>
-                        <span data-bind="visible: couponLoading()">Applying…</span>
-                    </button>
-                </div>
-
-                <div class="insead-card">
-                    <h3 class="insead-subhead">Declarations</h3>
-                    <p data-bind="visible: showResidencyDeclaration"><strong>Once the invoice has been issued, no GST letter will be accepted, and no amendments will be allowed.</strong></p>
-                    <!-- CMS block "checkout-sidebar-text" (Content > Blocks), informational only -->
-                    <div class="insead-declarations-cms" data-bind="html: declarationsHtml"></div>
-                </div>
-            </div>
-
-            <!-- Right column -->
-            <div class="insead-pay-side">
-                <!-- Order summary -->
-                <div class="insead-card">
-                    <h3 class="insead-subhead">Order Summary</h3>
-                    <!-- ko foreach: summaryData().items -->
-                    <div class="insead-order-item">
-                        <div class="insead-order-item__name" data-bind="text: name"></div>
-                        <div class="insead-order-item__cols">
-                            <span>FEE <b data-bind="text: fee"></b></span>
-                            <span>OFFERING <b data-bind="text: offering"></b></span>
-                            <span>FINAL FEE <b data-bind="text: finalFee"></b></span>
-                        </div>
-                    </div>
-                    <!-- /ko -->
-                    <div class="insead-totals">
-                        <div class="insead-totals__row"><span>Subtotal</span><span data-bind="text: summaryData().totals.subtotal"></span></div>
-                        <!-- ko if: summaryData().totals.couponCode -->
-                        <div class="insead-totals__row">
-                            <span>Discount (<span data-bind="text: summaryData().totals.couponCode"></span>)</span>
-                            <span data-bind="text: '-' + summaryData().totals.discount"></span>
-                        </div>
-                        <!-- /ko -->
-                        <div class="insead-totals__row"><span>VAT &amp; GST</span><span data-bind="text: summaryData().totals.tax"></span></div>
-                        <div class="insead-totals__row _grand"><span>Total</span><span data-bind="text: summaryData().totals.grand"></span></div>
-                    </div>
-                </div>
-
-                <!-- Proforma Invoice / Quotation button (Stores > Configuration > Insead > Proforma Invoice) -->
-                <!-- ko if: showProformaButton -->
-                <div class="insead-card">
-                    <button type="button" class="insead-btn _pay" data-bind="click: openProformaQuotation">Quotation</button>
-                </div>
-                <!-- /ko -->
-
-                <!-- Payment method -->
-                <div class="insead-card">
-                    <h3 class="insead-subhead">Payment Method</h3>
-
-                    <!-- ko if: cardMethod -->
-                    <label class="insead-pay-option" data-bind="css: {'_selected': paymentChoice() === 'card'}">
-                        <input type="radio" name="insead_pay" value="card" data-bind="checked: paymentChoice"/>
-                        <span class="insead-pay-option__label"><b>Credit/Debit Card</b><br/><small>Visa, Mastercard, American Express</small></span>
-                    </label>
-                    <div class="insead-stripe-element" id="insead-stripe-card" data-bind="visible: paymentChoice() === 'card'"></div>
-                    <!-- /ko -->
-
-                    <!-- ko if: bankMethod -->
-                    <label class="insead-pay-option" data-bind="css: {'_selected': paymentChoice() === 'bank'}">
-                        <input type="radio" name="insead_pay" value="bank" data-bind="checked: paymentChoice"/>
-                        <span class="insead-pay-option__label"><b>Bank Transfer</b><br/><small>Direct bank transfer payment</small></span>
-                    </label>
-                    <div class="insead-stripe-element" id="insead-stripe-bank" data-bind="visible: paymentChoice() === 'bank'"></div>
-                    <!-- /ko -->
-
-                    <!-- Other enabled payment methods (Braintree, PayPal, offline, etc.) -->
-                    <!-- ko foreach: otherMethods() -->
-                    <label class="insead-pay-option" data-bind="css: {'_selected': $parent.paymentChoice() === code}">
-                        <input type="radio" name="insead_pay" data-bind="value: code, checked: $parent.paymentChoice"/>
-                        <span class="insead-pay-option__label"><b data-bind="text: title"></b></span>
-                    </label>
-                    <!-- /ko -->
-
-                    <!-- Braintree Drop-in container (card + PayPal via Drop-in UI) -->
-                    <!-- ko if: isBraintreeSelected() -->
-                    <div class="insead-braintree-wrap">
-                        <p class="insead-hint" data-bind="visible: braintreeLoading()">Loading payment form…</p>
-                        <div id="insead-braintree-dropin"></div>
-                    </div>
-                    <!-- /ko -->
-
-                    <!-- ko ifnot: hasAnyPaymentMethod() -->
-                    <p class="insead-hint">No payment methods are currently available for this cart.</p>
-                    <!-- /ko -->
-
-                    <button class="insead-btn _pay" data-bind="click: placeOrder, disable: !canPay()">
-                        <span data-bind="visible: !isLoading()">Place Order <span data-bind="text: summaryData().totals.grand"></span></span>
-                        <span data-bind="visible: isLoading()">Processing…</span>
-                    </button>
-                    <p class="insead-hint _center">🔒 Secure 256-bit SSL encrypted payment</p>
-                    <a class="insead-link _center" data-bind="click: backToBilling">← Back to Billing</a>
-                </div>
-            </div>
+        <!-- Actions -->
+        <div class="insead-actions">
+            <a class="insead-link" data-bind="attr: {href: endpointUrls.cart}">Back</a>
+            <span class="insead-actions__right">
+                <a class="insead-link" data-bind="click: saveBilling">Save</a>
+                <!-- Redirects to native Magento checkout for payment on success —
+                     see Controller\Billing\Save and Observer\AddCustomCheckoutLayoutHandle.
+                     Order summary and discount code are shown there by native
+                     checkout itself; Declarations and the Proforma button are
+                     added onto that same page via Block\PaymentPageExtras. -->
+                <button class="insead-btn" data-bind="click: proceedToPayment, disable: isLoading() || vatBlocksProceed()">
+                    <span data-bind="visible: !isLoading()">Continue to Payment</span>
+                    <span data-bind="visible: isLoading()">Saving…</span>
+                </button>
+            </span>
         </div>
     </div>
 </div>

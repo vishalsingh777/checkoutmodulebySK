@@ -15,13 +15,8 @@ use Magento\Framework\Data\Form\FormKey\Validator as FormKeyValidator;
 use Magento\Checkout\Model\Session as CheckoutSession;
 use Magento\Customer\Model\Session as CustomerSession;
 use Magento\Eav\Model\Config as EavConfig;
-use Magento\Framework\Pricing\PriceCurrencyInterface;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Payment\Model\MethodList;
-use Magento\Store\Model\ScopeInterface;
-use Insead\CustomCheckout\Model\MgOrganizationWriter;
-use Insead\CustomCheckout\Model\CompanyProfile;
-use Insead\CustomCheckout\Model\CustomerAddressSaver;
+use Magento\Framework\UrlInterface;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -51,15 +46,11 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         private readonly FormKeyValidator $formKeyValidator,
         private readonly CheckoutSession $checkoutSession,
         private readonly CustomerSession $customerSession,
-        private readonly MgOrganizationWriter $mgOrganizationWriter,
-        private readonly CompanyProfile $companyProfile,
-        private readonly CustomerAddressSaver $customerAddressSaver,
-        private readonly PriceCurrencyInterface $priceCurrency,
         private readonly ResourceConnection $resourceConnection,
         private readonly CustomerRepositoryInterface $customerRepository,
         private readonly EavConfig $eavConfig,
-        private readonly MethodList $methodList,
-        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly UrlInterface $url,
+        private readonly CartRepositoryInterface $cartRepository,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -115,6 +106,20 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 'country_id' => $countryId,
             ]);
 
+            // Prevent native Magento from independently deciding to save this
+            // address into the customer's own address book
+            // (customer_address_entity) when the order is placed. This
+            // module owns ALL address-reuse writes, keyed correctly by
+            // financing_profile — B2C goes to the customer's address book
+            // (Model\CustomerAddressSaver), B2B goes to insead_company_address
+            // (Model\CompanyProfile) — both fired post-order from
+            // Observer\ExportOrganizationOnOrderPlaced. Without this flag,
+            // native's own order-placement flow can ALSO save the address to
+            // customer_address_entity regardless of what this module does,
+            // which is what put a B2B company address there instead of the
+            // organization tables.
+            $billing->setSaveInAddressBook(false);
+
             // B2B only: `company` is the gate Ewave_CustomerVat's auto customer-group
             // assignment requires to be non-empty before it runs at all (see
             // ewave_customervat/address_attribute/assign_by_filled_attributes config).
@@ -160,15 +165,21 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
 
             // Reserve the order increment id early so the flat-table export row
             // (written now, from the quote) lands under the same key the order
-            // will use once it's placed in Order/Place.php.
+            // will use once native checkout places it.
             if (!$quote->getReservedOrderId()) {
                 $quote->reserveOrderId();
             }
             // collectTotals (not just save) so tax recalculates against the
-            // billing country/region just submitted — otherwise the Order
-            // Summary shown on the Payment step keeps showing the tax amount
-            // from before the user entered their billing address (often 0).
-            $quote->collectTotals()->save();
+            // billing country/region just submitted. Persisted via
+            // CartRepositoryInterface — NOT $quote->save() — because the
+            // legacy Quote::save() does not reliably cascade nested billing
+            // address changes to the DB (most visible on B2B/first-time
+            // saves, where the address row is being inserted rather than
+            // updated; native checkout then reloads the quote and shows a
+            // stale address). This is the same persistence path native
+            // Magento's own checkout uses internally.
+            $quote->collectTotals();
+            $this->cartRepository->save($quote);
 
             // Persist peoplesoft_id and gender on the customer record so
             // they appear in the admin customer account info page and are
@@ -217,68 +228,31 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 }
             }
 
-            try {
-                $this->mgOrganizationWriter->saveFromQuote($quote);
-            } catch (\Throwable $e) {
-                $this->logger->error('INSEAD mg_organization export (quote): ' . $e->getMessage());
-            }
+            // Organization/company/customer-address reuse writes intentionally
+            // do NOT happen here. They fire only after the order is actually
+            // placed (see Observer\ExportOrganizationOnOrderPlaced) — this
+            // quote may still be abandoned, and writing insead_mg_organization,
+            // insead_company_address, or the customer's default billing
+            // address at billing-save time would create/overwrite reuse data
+            // for an order that was never confirmed.
 
-            // B2B + logged-in: save the company's default billing address and the
-            // customer<->company link for reuse (prefill) on the next checkout.
-            if ($customer && $posted('financing_profile') === 'b2b') {
-                try {
-                    $this->companyProfile->save((int) $customer->getId(), [
-                        'firstname'  => $firstname,
-                        'lastname'   => $lastname,
-                        'email'      => $email,
-                        'company'    => $companyName,
-                        'street1'    => $street1,
-                        'street2'    => $street2,
-                        'city'       => $city,
-                        'region'     => $region,
-                        'postcode'   => $postcode,
-                        'country_id' => $countryId,
-                        'telephone'  => $telephone,
-                        'vat_id'     => $vatId,
-                    ]);
-                } catch (\Throwable $e) {
-                    $this->logger->error('INSEAD company profile save: ' . $e->getMessage());
-                }
-            }
-
-            // B2C + logged-in: write the personal billing address back to the
-            // customer account (default billing) so it pre-fills next time.
-            if ($customer && $posted('financing_profile') === 'b2c') {
-                try {
-                    $this->customerAddressSaver->save((int) $customer->getId(), [
-                        'firstname'  => $firstname,
-                        'lastname'   => $lastname,
-                        'street1'    => $street1,
-                        'street2'    => $street2,
-                        'city'       => $city,
-                        'region'     => $region,
-                        'postcode'   => $postcode,
-                        'country_id' => $countryId,
-                        'telephone'  => $telephone,
-                    ]);
-                } catch (\Throwable $e) {
-                    $this->logger->error('INSEAD B2C customer address save: ' . $e->getMessage());
-                }
-            }
-
-            $taxAddress = $quote->isVirtual() ? $quote->getBillingAddress() : $quote->getShippingAddress();
+            // Mark this quote's Billing Information as confirmed and persist
+            // it. The NEXT /checkout page load (the browser is redirected
+            // there below) is picked up by Observer\AddCustomCheckoutLayoutHandle,
+            // which sees this flag and stops adding the custom-checkout
+            // layout handle — so that load is genuine, untouched native
+            // Magento checkout, landing straight on the payment step since
+            // the quote is virtual. This is what gives every enabled payment
+            // method (Stripe, Braintree, PayPal, Sogecommerce, offline
+            // methods, anything enabled later) real, zero-maintenance
+            // support: native renders and completes each one itself.
+            $quote->setData('insead_billing_confirmed', 1);
+            $quote->collectTotals();
+            $this->cartRepository->save($quote);
 
             return $result->setData([
-                'success' => true,
-                'totals' => [
-                    'subtotal'   => $this->priceCurrency->format((float) $quote->getSubtotal(), false),
-                    'discount'   => $this->priceCurrency->format(abs((float) $taxAddress->getDiscountAmount()), false),
-                    'tax'        => $this->priceCurrency->format((float) $taxAddress->getTaxAmount(), false),
-                    'grand'      => $this->priceCurrency->format((float) $quote->getGrandTotal(), false),
-                    'grandRaw'   => number_format((float) $quote->getGrandTotal(), 2, '.', ''),
-                    'couponCode' => (string) $quote->getCouponCode(),
-                ],
-                'payment_methods' => $this->collectPaymentMethods($quote),
+                'success'  => true,
+                'redirect' => $this->url->getUrl('checkout'),
             ]);
         } catch (\Throwable $e) {
             $this->logger->error('INSEAD checkout save: ' . $e->getMessage());
@@ -287,75 +261,6 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 'message' => __('Unable to save billing data.'),
             ]);
         }
-    }
-
-    /**
-     * Collect available payment methods AFTER the billing address has been set
-     * on the quote. This returns a more complete list than the page-load snapshot
-     * (some methods require a billing country to decide availability).
-     *
-     * @return array{card:?array,bank:?array,others:array}
-     */
-    private function collectPaymentMethods(\Magento\Quote\Model\Quote $quote): array
-    {
-        $available = [];
-        try {
-            $storeId = (int) $quote->getStoreId();
-
-            // Mirrors Block/Checkout.php: validated methods only, then offline
-            // methods re-added for virtual carts.
-            foreach ($this->methodList->getAvailableMethods($quote) as $method) {
-                $available[$method->getCode()] = (string) $method->getTitle();
-            }
-            if ($quote->isVirtual()) {
-                foreach (['cashondelivery', 'checkmo', 'banktransfer', 'purchaseorder'] as $code) {
-                    if (!isset($available[$code]) && $this->scopeConfig->isSetFlag(
-                        'payment/' . $code . '/active',
-                        ScopeInterface::SCOPE_STORE,
-                        $storeId
-                    )) {
-                        $title = (string) $this->scopeConfig->getValue(
-                            'payment/' . $code . '/title',
-                            ScopeInterface::SCOPE_STORE,
-                            $storeId
-                        );
-                        if ($title !== '') {
-                            $available[$code] = $title;
-                        }
-                    }
-                }
-            }
-        } catch (\Throwable $e) {
-            $this->logger->error('INSEAD save payment methods: ' . $e->getMessage());
-        }
-
-        $stripeCard = 'stripe_payments';
-        $stripeBank = 'stripe_payments_bank_transfers';
-        $others = [];
-        foreach ($available as $code => $title) {
-            if ($code === $stripeCard || $code === $stripeBank) {
-                continue;
-            }
-            // Skip all other stripe_* sub-methods (Apple Pay, Google Pay Express,
-            // etc.) — they render inside the Payment Element automatically.
-            if (strncmp($code, 'stripe_', 7) === 0) {
-                continue;
-            }
-            // Skip Braintree sub-methods (braintree_cc_vault, braintree_paypal,
-            // braintree_googlepay, etc.). The Drop-in renders all types internally.
-            if ($code !== 'braintree' && strncmp($code, 'braintree', 9) === 0) {
-                continue;
-            }
-            $others[] = ['code' => $code, 'title' => $title];
-        }
-
-        return [
-            'card'   => isset($available[$stripeCard])
-                ? ['code' => $stripeCard, 'title' => $available[$stripeCard]] : null,
-            'bank'   => isset($available[$stripeBank])
-                ? ['code' => $stripeBank, 'title' => $available[$stripeBank]] : null,
-            'others' => $others,
-        ];
     }
 
     /**

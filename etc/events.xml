@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!--
+        Global (not area-scoped) because order placement can happen from
+        frontend checkout, admin order creation, or the REST/GraphQL APIs —
+        the DataHub export should run regardless of which one placed it.
+    -->
+    <event name="checkout_submit_all_after">
+        <observer name="insead_export_mg_organization"
+                  instance="Insead\CustomCheckout\Observer\ExportOrganizationOnOrderPlaced"/>
+    </event>
+</config>

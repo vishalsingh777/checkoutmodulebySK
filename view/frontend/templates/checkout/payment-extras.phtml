@@ -1,0 +1,12 @@
+<?php
+/** @var \Insead\CustomCheckout\Block\PaymentPageExtras $block */
+if (!$block->shouldShow()) {
+    return;
+}
+?>
+<div class="insead-payment-extras">
+    <a class="insead-link" href="<?= $block->escapeUrl($block->getEditBillingUrl()) ?>">
+        &larr; <?= $block->escapeHtml(__('Edit Billing Information')) ?>
+    </a>
+
+</div>

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+    Unlike insead_customcheckout_enabled.xml (which is only applied when
+    Observer\AddCustomCheckoutLayoutHandle adds its handle, and removes
+    checkout.root entirely), this file is checkout_index_index.xml itself —
+    it always applies, on every /checkout load, and only ADDS a block
+    alongside checkout.root. It never touches checkout.root.
+
+    Block\PaymentPageExtras decides for itself whether to render anything
+    (see shouldShow() — only true once this quote's Billing Information step
+    has been confirmed), so on stores that don't use the custom checkout at
+    all, or on the Billing Information page itself, this block outputs
+    nothing.
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <css src="Insead_CustomCheckout::css/checkout-custom.css"/>
+    </head>
+    <body>
+        <referenceContainer name="content">
+            <block name="insead.payment.page.extras"
+                   class="Insead\CustomCheckout\Block\PaymentPageExtras"
+                   template="Insead_CustomCheckout::checkout/payment-extras.phtml"
+                   before="checkout.root"
+                   ifconfig="insead_checkout/insead_customcheckout/enabled"
+                   cacheable="false"/>
+        </referenceContainer>
+    </body>
+</page>

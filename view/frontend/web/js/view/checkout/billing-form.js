@@ -1,11 +1,17 @@
 /**
- * INSEAD Custom Checkout — standalone two-step page (Billing Information →
- * Payment) that mirrors the INSEAD Salesforce flow.
+ * INSEAD Custom Checkout — Billing Information step (Self-funded/B2C or
+ * Sponsored/Organisation/B2B) with country-group x tax-status driven Tax &
+ * Legal fields and a GST Declaration.
  *
- * Step 1 collects the Self-funded (B2C) or Sponsored (B2B) billing details with
- * country-group × tax-status driven Tax & Legal fields and a GST Declaration.
- * Step 2 takes payment via the real Stripe Payment Element (reusing
- * StripeIntegration_Payments) or Bank Transfer, then places the order.
+ * This is now the ONLY step this component renders. On success, Continue to
+ * Payment (proceedToPayment) redirects the browser to the URL the server
+ * returns — genuine, unmodified native Magento checkout — rather than
+ * switching to an in-page payment step. See Controller\Billing\Save and
+ * Observer\AddCustomCheckoutLayoutHandle for the handoff mechanism. This
+ * means every enabled payment method (Stripe, Braintree, PayPal,
+ * Sogecommerce, Check/Money Order, Cash On Delivery, anything enabled later)
+ * is handled entirely by native Magento, with zero payment-method-specific
+ * code in this file.
  */
 define([
     'uiComponent',
@@ -14,11 +20,6 @@ define([
     'mage/translate'
 ], function (Component, ko, $, $t) {
     'use strict';
-
-    // Stripe modules are loaded lazily (only when the payment step is reached)
-    // so a slow/blocked Stripe.js CDN never prevents the billing form from
-    // rendering. Resolved into these vars by _initStripe().
-    var getRequiresAction = null;
 
     // EU member-state ISO codes (France is its own group, handled separately
     // below for SIRET/SIREN). GB included per spec; EL is the official ISO for Greece.
@@ -184,9 +185,6 @@ define([
             isLoggedIn: false,
             customer: {},
             countries: [],
-            paymentMethods: {},
-            stripe: {},
-            summary: {},
             prefill: {},
             programmeInSingapore: true,
             urls: {},
@@ -219,24 +217,7 @@ define([
             this.endpointUrls = this.urls || {};
             this.formKeyValue = this.formKey || '';
             this.countriesList = ko.observableArray(this.countries || []);
-            this.stripeConfig = this.stripe || {};
-            this.paymentConfig = this.paymentMethods || {};
-            this.summaryData = ko.observable(this.summary || {items: [], totals: {}});
             this.programmeIsSingapore = !!this.programmeInSingapore;
-            // Non-Stripe payment methods (Braintree, PayPal, offline, etc.)
-            this.otherMethods = ko.observableArray(this.paymentConfig.others || []);
-            // True while the Braintree Drop-in is being fetched / created.
-            this.braintreeLoading = ko.observable(false);
-            // Store/website-scoped "Quotation" (Proforma Invoice) button, shared
-            // config with Insead_ProformaInvoice's native-checkout integration.
-            this.showProformaButton = !!this.proformaInvoiceEnabled;
-
-            // Native Magento Sales Rule coupon code (website/store scoped like
-            // any other cart price rule). Prefilled if the quote already has one.
-            this.couponCode = ko.observable((this.summaryData().totals || {}).couponCode || '');
-            this.couponMessage = ko.observable('');
-            this.couponError = ko.observable(false);
-            this.couponLoading = ko.observable(false);
 
             // Gates the live VAT Intracommunity check — mirrors Ewave_CustomerVat's
             // own "Enable Automatic Assignment to Customer Group" store setting
@@ -255,7 +236,7 @@ define([
             this.customerEmail = pf.email || customer.email || '';
             this.customerTelephone = pf.telephone || '';
 
-            // ---- Step 1: selector box ----
+            // ---- Selector box ----
             this.country = ko.observable(pf.country_id || 'FR'); // ISO code
             this.financingProfile = ko.observable(pf.is_btob ? 'b2b' : 'b2c'); // b2c = Self-funded
             this.taxStatus = ko.observable(
@@ -277,7 +258,7 @@ define([
             this.city = ko.observable(pf.city || '');
             this.region = ko.observable(pf.region || '');
             this.postcode = ko.observable(pf.postcode || '');
-            this.residencyDeclaration = ko.observable(''); // 'agree' | 'disagree'
+            this.residencyDeclaration = ko.observable(pf.residency_declaration || '');
 
             // ---- B2B (Sponsored) — Organisation details ----
             this.invoiceFirstName = ko.observable(pf.invoice_recipient_firstname || pf.firstname || '');
@@ -327,27 +308,12 @@ define([
             }
 
             // GST Declaration.
-            this.gstDeclaration = ko.observable('');
-
-            // ---- Step 2: payment ----
-            this.currentStep = ko.observable('billing'); // 'billing' | 'payment'
-            // CMS block (identifier "checkout-sidebar-text") rendered in place of
-            // the old Terms & Conditions checkbox — informational only, so
-            // acceptance is no longer required to place the order.
-            this.declarationsHtml = this.declarationsHtml || '';
-            this.paymentChoice = ko.observable(''); // 'card' | 'bank'
+            this.gstDeclaration = ko.observable(pf.gst_declaration || '');
 
             // UI state.
             this.errors = ko.observable({});
             this.globalError = ko.observable('');
             this.isLoading = ko.observable(false);
-
-            // Stripe runtime state.
-            this._stripeReady = false;
-            this._cardElements = null;
-            this._cardMounted = false;
-            this._bankElements = null;
-            this._bankMounted = false;
         },
 
         _initComputed: function () {
@@ -375,7 +341,7 @@ define([
                 return self.isB2C() && self.programmeIsSingapore
                     && residencyExcluded.indexOf(self.country()) === -1;
             });
-            // Blocks "Proceed to payment" until the VAT Intracommunity Number
+            // Blocks "Continue to Payment" until the VAT Intracommunity Number
             // field (when it's actually shown — B2B + FR/EU + Tax Registered)
             // has come back "valid" from the live VIES check. Only applies on
             // stores where that check is enabled at all (vatValidationEnabled) —
@@ -385,19 +351,6 @@ define([
                 if (!self.isB2B() || !self.vatValidationEnabled) { return false; }
                 var vatField = self.dynamicFields().filter(function (f) { return f.isVat; })[0];
                 return !!vatField && vatField.vatStatus() !== 'valid';
-            });
-            this.cardMethod = this.paymentConfig.card || null;
-            this.bankMethod = this.paymentConfig.bank || null;
-            this.isBraintreeSelected = ko.computed(function () {
-                return (self.paymentChoice() || '').indexOf('braintree') !== -1;
-            });
-            this.hasAnyPaymentMethod = ko.computed(function () {
-                return !!(self.cardMethod || self.bankMethod || self.otherMethods().length);
-            });
-            // Pay Now enabled once a payment method is chosen (no T&C acceptance
-            // required — the Declarations card is informational only now).
-            this.canPay = ko.computed(function () {
-                return !!self.paymentChoice() && !self.isLoading();
             });
         },
 
@@ -414,12 +367,6 @@ define([
                 self.globalError('');
                 self.renderFields();
                 self.gstDeclaration('');
-            });
-            // Mount the relevant payment element when the choice changes.
-            this.paymentChoice.subscribe(function (choice) {
-                if (choice === 'card') { self._mountCard(); }
-                if (choice === 'bank') { self._mountBank(); }
-                if (choice && choice.indexOf('braintree') !== -1) { self._mountBraintree(); }
             });
         },
 
@@ -452,7 +399,7 @@ define([
 
         /**
          * Capture the File chosen for a Tax Exempt upload field. The actual file
-         * is held until Save / Proceed to payment, when _uploadPendingFiles() POSTs
+         * is held until Save / Continue to Payment, when _uploadPendingFiles() POSTs
          * it. `valueObservable` keeps the filename so required-field validation
          * passes; a previously uploaded server path is cleared so the new file wins.
          */
@@ -739,7 +686,11 @@ define([
             return data;
         },
 
-        /** Step 1 "Proceed to payment": validate, save, reveal the payment step. */
+        /**
+         * "Continue to Payment": validate, save, then redirect the browser to
+         * the URL the server returns (genuine native Magento checkout — see
+         * Controller\Billing\Save). Not an in-page step switch anymore.
+         */
         proceedToPayment: function () {
             var self = this;
             this.globalError('');
@@ -753,33 +704,20 @@ define([
                     url: self.endpointUrls.save, method: 'POST', dataType: 'json', data: self._collectPayload()
                 });
             }).done(function (res) {
-                if (res && res.success) {
-                    if (res.totals) {
-                        var current = self.summaryData();
-                        self.summaryData({items: current.items, totals: res.totals});
-                    }
-                    // Refresh payment methods now that billing address is set on the
-                    // quote — some methods (e.g. COD) only become available once a
-                    // billing country is known.
-                    if (res.payment_methods) {
-                        self.otherMethods(res.payment_methods.others || []);
-                    }
-                    self.currentStep('payment');
-                    self._initStripe();
-                    self._initOtherPayments();
-                    window.scrollTo({top: 0, behavior: 'smooth'});
-                } else {
-                    self.globalError((res && res.message) || $t('Unable to save billing data.'));
+                if (res && res.success && res.redirect) {
+                    window.location.href = res.redirect;
+                    return; // leave isLoading(true) — the page is navigating away
                 }
+                self.isLoading(false);
+                self.globalError((res && res.message) || $t('Unable to save billing data.'));
             }).fail(function (err) {
+                self.isLoading(false);
                 self.globalError((typeof err === 'string' && err)
                     || $t('Unable to save billing data. Please try again.'));
-            }).always(function () {
-                self.isLoading(false);
             });
         },
 
-        /** "Save" (without advancing): persist Step 1 silently. */
+        /** "Save" (without advancing): persist Billing Information silently. */
         saveBilling: function () {
             var self = this;
             this.globalError('');
@@ -794,401 +732,6 @@ define([
             }).fail(function (err) {
                 self.globalError((typeof err === 'string' && err)
                     || $t('Unable to upload the file. Please try again.'));
-            });
-        },
-
-        backToBilling: function () {
-            this.currentStep('billing');
-            this.globalError('');
-        },
-
-        // ---- Stripe payment -------------------------------------------------
-
-        _initStripe: function () {
-            var self = this;
-            if (this._stripeReady || !this.stripeConfig || !this.stripeConfig.initParams) { return; }
-            this._stripeReady = true;
-            // Lazily pull in Stripe.js + the requires-action action.
-            require([
-                'StripeIntegration_Payments/js/stripe',
-                'StripeIntegration_Payments/js/action/get-requires-action'
-            ], function (stripeModule, requiresAction) {
-                getRequiresAction = requiresAction;
-                window.stripe.initStripe(self.stripeConfig.initParams);
-                // Default to card when available, then mount the chosen element.
-                if (self.cardMethod && !self.paymentChoice()) {
-                    self.paymentChoice('card');
-                } else if (self.bankMethod && !self.paymentChoice()) {
-                    self.paymentChoice('bank');
-                } else if (self.paymentChoice() === 'card') {
-                    self._mountCard();
-                } else if (self.paymentChoice() === 'bank') {
-                    self._mountBank();
-                }
-            }, function () {
-                self.globalError($t('Unable to load the secure payment library. Please refresh and try again.'));
-            });
-        },
-
-        _mountCard: function () {
-            if (this._cardMounted || !window.stripe || !window.stripe.stripeJs) { return; }
-            try {
-                this._cardElements = window.stripe.stripeJs.elements(this.stripeConfig.elementOptions);
-                this._cardElements.create('payment').mount('#insead-stripe-card');
-                this._cardMounted = true;
-            } catch (e) {
-                this.globalError($t('Unable to load the card payment form.'));
-                window.console && console.error(e);
-            }
-        },
-
-        _mountBank: function () {
-            if (this._bankMounted || !window.stripe || !window.stripe.stripeJs
-                || !this.stripeConfig.bankElementOptions) { return; }
-            try {
-                this._bankElements = window.stripe.stripeJs.elements(this.stripeConfig.bankElementOptions);
-                this._bankElements.create('payment').mount('#insead-stripe-bank');
-                this._bankMounted = true;
-            } catch (e) {
-                window.console && console.error(e);
-            }
-        },
-
-        _billingDetails: function () {
-            var name = this.isB2B()
-                ? (this.invoiceFirstName() + ' ' + this.invoiceLastName())
-                : (this.b2cFirstName() + ' ' + this.b2cLastName());
-            return {
-                name: name.trim(),
-                email: this.isB2B() ? this.invoiceEmail() : this.b2cEmail(),
-                address: {
-                    line1: this.isB2B() ? this.companyStreet1() : this.street1(),
-                    line2: this.isB2B() ? this.companyStreet2() : this.street2(),
-                    city: this.isB2B() ? this.companyCity() : this.city(),
-                    state: this.isB2B() ? this.companyState() : this.region(),
-                    postal_code: this.isB2B() ? this.companyZip() : this.postcode(),
-                    country: this.country()
-                }
-            };
-        },
-
-        /** Place the order — dispatches to Stripe, Braintree, or offline flow. */
-        placeOrder: function () {
-            var self = this;
-            this.globalError('');
-            var choice = this.paymentChoice();
-            if (!choice) {
-                this.globalError($t('Please select a payment method.'));
-                return;
-            }
-
-            // ---- Stripe card / bank ----
-            if (choice === 'card' || choice === 'bank') {
-                var elements = choice === 'card' ? this._cardElements : this._bankElements;
-                var methodCode = choice === 'card'
-                    ? (this.cardMethod && this.cardMethod.code)
-                    : (this.bankMethod && this.bankMethod.code);
-                if (!elements || !methodCode) {
-                    this.globalError($t('The payment form is not ready. Please try again.'));
-                    return;
-                }
-                this.isLoading(true);
-                elements.submit().then(function () {
-                    window.stripe.stripeJs.createPaymentMethod({
-                        elements: elements,
-                        params: {billing_details: self._billingDetails()}
-                    }).then(function (result) {
-                        if (result.error) {
-                            self.isLoading(false);
-                            return self.globalError(result.error.message);
-                        }
-                        self._placeOrderOnServer(methodCode, result.paymentMethod.id);
-                    });
-                }, function (result) {
-                    self.isLoading(false);
-                    self.globalError((result && result.error && result.error.message)
-                        || $t('A payment submission error has occurred.'));
-                });
-                return;
-            }
-
-            // ---- Braintree (card, PayPal, etc.) ----
-            if (choice.indexOf('braintree') !== -1) {
-                if (!this._braintreeInstance) {
-                    this.globalError($t('The payment form is not ready. Please try again.'));
-                    return;
-                }
-                this.isLoading(true);
-                // The gateway is configured to always require 3D Secure (see
-                // payment/braintree/always_request_3ds), so every nonce must be
-                // verified with the order amount or Braintree rejects the
-                // transaction with "Gateway Rejected: three_d_secure".
-                var grandRaw = (self.summaryData().totals || {}).grandRaw || '0.00';
-                this._braintreeInstance.requestPaymentMethod({
-                    threeDSecure: {amount: grandRaw}
-                }, function (err, payload) {
-                    if (err) {
-                        self.isLoading(false);
-                        self.globalError(err.message || $t('A payment error has occurred.'));
-                        return;
-                    }
-                    self._placeOrderWithData({
-                        form_key: self.formKeyValue,
-                        payment_method: choice,
-                        payment_method_nonce: payload.nonce
-                    });
-                });
-                return;
-            }
-
-            // ---- Offline / other Magento-native methods ----
-            this.isLoading(true);
-            this._placeOrderWithData({
-                form_key: this.formKeyValue,
-                payment_method: choice
-            });
-        },
-
-        _placeOrderOnServer: function (methodCode, paymentMethodId) {
-            var self = this;
-            $.ajax({
-                url: this.endpointUrls.place, method: 'POST', dataType: 'json',
-                data: {
-                    form_key: this.formKeyValue,
-                    payment_method: methodCode,
-                    payment_method_id: paymentMethodId
-                }
-            }).done(function (res) {
-                if (res && res.success) {
-                    self._handleRequiresAction();
-                } else {
-                    self.isLoading(false);
-                    self.globalError((res && res.message) || $t('Unable to place the order.'));
-                }
-            }).fail(function () {
-                self.isLoading(false);
-                self.globalError($t('Unable to place the order. Please try again.'));
-            });
-        },
-
-        /** After placement, run any Stripe next-action (3DS / bank instructions). */
-        _handleRequiresAction: function () {
-            var self = this;
-            getRequiresAction(function (clientSecret) {
-                if (clientSecret && clientSecret.length) {
-                    window.stripe.authenticateCustomer(clientSecret, function (err) {
-                        if (err) {
-                            self.isLoading(false);
-                            return self.globalError(err);
-                        }
-                        self._redirectSuccess();
-                    });
-                } else {
-                    self._redirectSuccess();
-                }
-            });
-        },
-
-        _redirectSuccess: function () {
-            window.location.href = this.endpointUrls.success;
-        },
-
-        /**
-         * Open the Proforma Invoice ("Quotation") PDF in a new tab. The
-         * Insead_ProformaInvoice controller pulls billing data straight from
-         * the checkout-session quote, which Save.php has already persisted by
-         * the time this button is visible (payment step), so no billing data
-         * needs to be passed here.
-         */
-        openProformaQuotation: function () {
-            if (this.endpointUrls.proformaPdf) {
-                window.open(this.endpointUrls.proformaPdf, '_blank');
-            }
-        },
-
-        /**
-         * Apply (or, given an empty field, remove) a native Magento Sales Rule
-         * coupon code on the quote via Insead_CustomCheckout's own coupon/apply
-         * endpoint, which wraps Magento\Quote\Api\CouponManagementInterface —
-         * the same service the native cart/checkout coupon box uses, so price
-         * rule validation, usage limits and store scoping behave identically.
-         */
-        applyCouponCode: function () {
-            var self = this;
-            if (this.couponLoading()) { return; }
-
-            this.couponLoading(true);
-            this.couponMessage('');
-            $.ajax({
-                url: this.endpointUrls.applyCoupon,
-                method: 'POST',
-                dataType: 'json',
-                data: {form_key: this.formKeyValue, coupon_code: this.couponCode()}
-            }).done(function (res) {
-                self.couponLoading(false);
-                self.couponError(!(res && res.success));
-                self.couponMessage((res && res.message) || $t('Unable to apply the coupon code.'));
-                if (res && res.success && res.totals) {
-                    var current = self.summaryData();
-                    // Coupon discounts get allocated across line items server-side,
-                    // so use the refreshed items (OFFERING %) when present.
-                    self.summaryData({items: res.items || current.items, totals: res.totals});
-                    self.couponCode(res.totals.couponCode || '');
-                }
-            }).fail(function () {
-                self.couponLoading(false);
-                self.couponError(true);
-                self.couponMessage($t('Unable to apply the coupon code.'));
-            });
-        },
-
-        // ---- Non-Stripe payment initialisation --------------------------
-
-        /**
-         * Auto-select the first available non-Stripe, non-Braintree method when
-         * Stripe is not configured for this store. Braintree is intentionally
-         * skipped here because mounting the Drop-in is async (CDN script + token
-         * fetch); auto-selection on page load would fire _mountBraintree() before
-         * the user has interacted, causing "Request does not match any route"
-         * errors on stores that don't have the Braintree REST endpoint available.
-         * Braintree methods still appear in the list and mount correctly when the
-         * user explicitly clicks them.
-         */
-        _initOtherPayments: function () {
-            if (this.stripeConfig && this.stripeConfig.initParams) { return; }
-            if (this.paymentChoice()) { return; }
-            var others = this.otherMethods();
-            // Prefer offline / native methods for auto-selection.
-            for (var i = 0; i < others.length; i++) {
-                if (others[i].code.indexOf('braintree') === -1
-                        && others[i].code.indexOf('paypal') === -1) {
-                    this.paymentChoice(others[i].code);
-                    return;
-                }
-            }
-            // Only gateway (braintree / paypal) methods remain — select the first
-            // but don't auto-mount the Drop-in; the subscribe handler will call
-            // _mountBraintree() only if the user actually clicks the option.
-            // We do NOT set paymentChoice here; let the user pick.
-        },
-
-        /**
-         * Mount the Braintree Drop-in UI inside #insead-braintree-dropin.
-         * Token is generated server-side (no REST endpoint exists for it).
-         *
-         * Re-mount safe: the template wraps the container in <!-- ko if: isBraintreeSelected() -->,
-         * so KnockoutJS destroys and re-creates the div every time the user switches
-         * away and back. We detect the stale instance (container is empty after KO
-         * re-creates it), teardown the old instance, then remount into the fresh div.
-         */
-        _mountBraintree: function () {
-            var self = this;
-            if (this._braintreeMounting) { return; }
-
-            // Detect stale instance: _braintreeInstance exists but the container was
-            // removed and re-created by KO (empty div). Teardown then remount.
-            if (this._braintreeInstance) {
-                var container = document.getElementById('insead-braintree-dropin');
-                if (!container || !container.firstChild) {
-                    var stale = this._braintreeInstance;
-                    this._braintreeInstance = null;
-                    stale.teardown(function () { self._mountBraintree(); });
-                }
-                // Container still has Drop-in content — already mounted.
-                return;
-            }
-
-            this._braintreeMounting = true;
-            this.braintreeLoading(true);
-
-            var clientToken = this.braintreeClientToken || null;
-            if (!clientToken) {
-                this._braintreeMounting = false;
-                this.braintreeLoading(false);
-                this.globalError($t('This payment method is not available. Please select another payment option.'));
-                return;
-            }
-
-            self._loadBraintreeDropIn(function () {
-                if (!window.braintree || !window.braintree.dropin) {
-                    self._braintreeMounting = false;
-                    self.braintreeLoading(false);
-                    self.globalError($t('Unable to load the payment library. Please refresh and try again.'));
-                    return;
-                }
-                window.braintree.dropin.create(
-                    {
-                        authorization: clientToken,
-                        container: '#insead-braintree-dropin',
-                        // Restrict the Drop-in to credit/debit card only.
-                        // Other Braintree payment types (PayPal, Apple Pay,
-                        // Google Pay, Venmo) each have their own Magento payment
-                        // method code and their own UI — they must not also appear
-                        // inside the Drop-in widget.
-                        paymentOptionPriority: ['card'],
-                        // Required so requestPaymentMethod({threeDSecure: {...}})
-                        // below can run the 3DS challenge the gateway demands.
-                        threeDSecure: true
-                    },
-                    function (err, instance) {
-                        self._braintreeMounting = false;
-                        self.braintreeLoading(false);
-                        if (err) {
-                            self.globalError($t('Unable to load payment form: ') + err.message);
-                            return;
-                        }
-                        self._braintreeInstance = instance;
-                    }
-                );
-            });
-        },
-
-        /** Dynamically append the Braintree Drop-in script once and fire the callback. */
-        _loadBraintreeDropIn: function (callback) {
-            if (window.braintree && window.braintree.dropin) {
-                setTimeout(callback, 0);
-                return;
-            }
-            // The Braintree Drop-in is a UMD bundle: it checks for window.define
-            // (RequireJS) and tries to register as an anonymous AMD module.  Magento's
-            // RequireJS throws "Mismatched anonymous define()" for any AMD define()
-            // called outside its own module-loading flow, which crashes the page.
-            // Temporarily hide define/require so the bundle falls through to the
-            // plain global (window.braintree) export path instead.
-            var savedDefine = window.define;
-            window.define = undefined;
-            var s = document.createElement('script');
-            s.src = 'https://js.braintreegateway.com/web/dropin/1.43.0/js/dropin.min.js';
-            s.onload = function () {
-                window.define = savedDefine;
-                setTimeout(callback, 0);
-            };
-            s.onerror = function () {
-                window.define = savedDefine;
-                setTimeout(callback, 0);
-            };
-            document.head.appendChild(s);
-        },
-
-        /**
-         * Generic order placement for Braintree nonce and offline methods.
-         * Stripe uses _placeOrderOnServer() (with 3DS action handling).
-         */
-        _placeOrderWithData: function (postData) {
-            var self = this;
-            $.ajax({
-                url: this.endpointUrls.place,
-                method: 'POST', dataType: 'json', data: postData
-            }).done(function (res) {
-                if (res && res.success) {
-                    window.location.href = res.redirect || self.endpointUrls.success;
-                } else {
-                    self.isLoading(false);
-                    self.globalError((res && res.message) || $t('Unable to place the order.'));
-                }
-            }).fail(function () {
-                self.isLoading(false);
-                self.globalError($t('Unable to place the order. Please try again.'));
             });
         }
     });
