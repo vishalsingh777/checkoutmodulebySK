@@ -85,7 +85,16 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 ?: ($customer ? (string) $customer->getLastname() : '') ?: 'Participant';
             $email     = $posted('email') ?: (string) $quote->getCustomerEmail() ?: (string) $billing->getEmail()
                 ?: ($customer ? (string) $customer->getEmail() : '');
-            $telephone = $posted('telephone') ?: (string) $billing->getTelephone() ?: '0000000000';
+            $telephone = $posted('telephone');
+            if ($telephone === '') {
+                $existing = (string) $billing->getTelephone();
+                if ($existing !== '' && $existing !== '0000000000') {
+                    $telephone = $existing;
+                }
+            }
+            if ($telephone === '') {
+                $telephone = '0000000000';
+            }
 
             $street1 = $posted('street1') ?: (string) ($existingStreet[0] ?? '');
             $street2 = $posted('street2') ?: (string) ($existingStreet[1] ?? '');

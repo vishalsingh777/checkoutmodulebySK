@@ -217,6 +217,14 @@ class Checkout extends Template
                 'residency_declaration' => $val($quote->getData('residency_declaration')),
             ];
 
+
+            // A prior checkout may have saved the dummy placeholder '0000000000'
+            // into quote_address. Treat it as empty so the B2B/B2C/order-history
+            // prefill steps below can fill in the customer's real phone number.
+            if (($data['telephone'] ?? '') === '0000000000') {
+                $data['telephone'] = '';
+            }
+
             // Returning customer: backfill any still-empty organization/tax
             // fields from their existing insead_mg_organization row (keyed by
             // customer_id). Guests are never written there, so nothing to do.
@@ -241,6 +249,7 @@ class Checkout extends Template
                 // insead_company_address). Only for B2B so a B2C quote's personal
                 // address is never overwritten with company data.
                 if ($isBtob === 1) {
+                    //print_r($data);die('Hey');
                     $companyAddress = $this->companyProfile->findDefaultAddressByCustomer($customerId);
                     $addressMap = [
                         'firstname'  => 'invoice_recipient_firstname',
@@ -259,6 +268,18 @@ class Checkout extends Template
                     foreach ($addressMap as $addrField => $prefillKey) {
                         if (isset($companyAddress[$addrField]) && ($data[$prefillKey] ?? '') === '') {
                             $data[$prefillKey] = $val($companyAddress[$addrField]);
+                        }
+                    }
+                    // Company address may have no phone; fall back to the buyer's
+                    // personal Magento default billing address phone so the field
+                    // is not blank for B2B customers who have a phone on their account.
+                    if (($data['telephone'] ?? '') === '') {
+                        $defaultBilling = $this->customerSession->getCustomer()->getDefaultBillingAddress();
+                        if ($defaultBilling && $defaultBilling->getId()) {
+                            $personalPhone = (string) $defaultBilling->getTelephone();
+                            if ($personalPhone !== '' && $personalPhone !== '0000000000') {
+                                $data['telephone'] = $personalPhone;
+                            }
                         }
                     }
                 }

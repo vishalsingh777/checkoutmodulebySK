@@ -6,7 +6,6 @@ namespace Insead\CustomCheckout\Model;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\DataObject;
 use Magento\Framework\Stdlib\DateTime\DateTime;
-use Magento\Quote\Api\Data\CartInterface;
 use Magento\Sales\Api\Data\OrderInterface;
 
 /**
@@ -28,16 +27,6 @@ class MgOrganizationWriter
         private readonly ResourceConnection $resourceConnection,
         private readonly DateTime $dateTime
     ) {
-    }
-
-    public function saveFromQuote(CartInterface $quote): void
-    {
-        $customerId = $quote->getCustomerId();
-        if (!$customerId) {
-            return;
-        }
-        $billingAddress = $quote->getBillingAddress();
-        $this->write((int) $customerId, $quote, $billingAddress ? $billingAddress->getCountryId() : null);
     }
 
     public function saveFromOrder(OrderInterface $order): void

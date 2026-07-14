@@ -6,8 +6,6 @@ namespace Insead\CustomCheckout\Block;
 use Magento\Framework\View\Element\Template;
 use Magento\Framework\View\Element\Template\Context;
 use Magento\Checkout\Model\Session as CheckoutSession;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Store\Model\ScopeInterface;
 
 /**
  * Small block ADDED alongside native checkout's payment step (see
@@ -29,7 +27,6 @@ class PaymentPageExtras extends Template
     public function __construct(
         Context $context,
         private readonly CheckoutSession $checkoutSession,
-        private readonly ScopeConfigInterface $scopeConfig,
         array $data = []
     ) {
         parent::__construct($context, $data);
@@ -51,17 +48,6 @@ class PaymentPageExtras extends Template
         return $this->getUrl('insead_checkout/billing/edit');
     }
 
-    public function isProformaInvoiceEnabled(): bool
-    {
-        return $this->scopeConfig->isSetFlag(
-            'proforma_invoice/general/enabled',
-            ScopeInterface::SCOPE_STORE
-        );
-    }
 
-    public function getProformaPdfUrl(): string
-    {
-        return $this->getUrl('proforma/quote/pdf');
-    }
 }
 

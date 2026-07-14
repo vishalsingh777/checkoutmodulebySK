@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+    Layout for GET /insead_checkout/billing (Controller\Billing\Index) — the
+    Billing Information step as its own real page. Unlike the old
+    insead_customcheckout_enabled.xml approach, there is no checkout.root to
+    remove here: this was never native checkout's layout in the first place,
+    it's simply a normal page with our block in the main content area.
+
+    Reuses the EXACT SAME block class and template as the old approach —
+    Insead\CustomCheckout\Block\Checkout / checkout/billing-form.phtml — so
+    the design and behavior of the form itself are unchanged; only the URL
+    hosting it is new.
+
+    Breadcrumbs, the page title, and the Compare Products sidebar are
+    explicitly removed below — native /checkout excludes these too (it's
+    checkout-specific layout, not the generic page furniture every other
+    page gets), so this page needs to match that to look the same as before.
+-->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      layout="1column"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <head>
+        <title>Billing Information</title>
+        <css src="Insead_CustomCheckout::css/checkout-custom.css"/>
+    </head>
+    <body>
+        <referenceBlock name="breadcrumbs" remove="true"/>
+        <referenceBlock name="page.main.title" remove="true"/>
+        <referenceBlock name="catalog.compare.sidebar" remove="true"/>
+        <referenceBlock name="right.reports.product.compared" remove="true"/>
+        <referenceContainer name="content">
+            <block name="insead.custom.checkout"
+                   class="Insead\CustomCheckout\Block\Checkout"
+                   template="Insead_CustomCheckout::checkout/billing-form.phtml"
+                   cacheable="false"/>
+        </referenceContainer>
+    </body>
+</page>

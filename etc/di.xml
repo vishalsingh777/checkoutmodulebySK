@@ -5,4 +5,8 @@
         <plugin name="insead_use_quote_billing_address"
                 type="Insead\CustomCheckout\Plugin\UseQuoteBillingAddressPlugin"/>
     </type>
+    <type name="Magento\Checkout\Controller\Index\Index">
+        <plugin name="insead_redirect_to_billing_step"
+                type="Insead\CustomCheckout\Plugin\RedirectToBillingStepPlugin"/>
+    </type>
 </config>
