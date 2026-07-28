@@ -10,4 +10,17 @@
         <observer name="insead_export_mg_organization"
                   instance="Insead\CustomCheckout\Observer\ExportOrganizationOnOrderPlaced"/>
     </event>
+    <!--
+        VAT-based customer group assignment for tax calculation — see
+        Observer\Vat\SetQuoteCustomerGroup for the coexistence rationale
+        (only acts on quotes that went through this module's own checkout).
+    -->
+    <event name="sales_quote_address_collect_totals_before">
+        <observer name="insead_set_vat_customer_group"
+                  instance="Insead\CustomCheckout\Observer\Vat\SetQuoteCustomerGroup"/>
+    </event>
+    <event name="sales_quote_address_collect_totals_after">
+        <observer name="insead_restore_vat_customer_group"
+                  instance="Insead\CustomCheckout\Observer\Vat\RestoreQuoteCustomerGroup"/>
+    </event>
 </config>

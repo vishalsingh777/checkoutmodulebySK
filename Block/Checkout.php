@@ -14,7 +14,6 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
-use Ewave\CustomerVat\Helper\AddressAttributeConfig;
 use Insead\CustomCheckout\Model\OrganizationLookup;
 use Insead\CustomCheckout\Model\CompanyProfile;
 
@@ -52,7 +51,6 @@ class Checkout extends Template
         private readonly StoreManagerInterface $storeManager,
         private readonly OrganizationLookup $organizationLookup,
         private readonly CompanyProfile $companyProfile,
-        private readonly AddressAttributeConfig $vatConfig,
         private readonly ResourceConnection $resourceConnection,
         array $data = []
     ) {
@@ -74,7 +72,6 @@ class Checkout extends Template
             'prefill'        => $this->getPrefill(),
             'programmeInSingapore' => $this->isProgrammeInSingapore(),
             'formKey'             => $this->formKey->getFormKey(),
-            'vatValidationEnabled' => $this->isVatValidationEnabled(),
             'urls'                => [
                 'lookup'      => $this->getUrl('insead_checkout/company/lookup'),
                 'save'        => $this->getUrl('insead_checkout/billing/save'),
@@ -83,20 +80,6 @@ class Checkout extends Template
                 'validateVat' => $this->getUrl('insead_checkout/vat/validate'),
             ],
         ]);
-    }
-
-
-    /**
-     * Whether the live VAT Intracommunity Number check should run. Reuses
-     * Ewave_CustomerVat's own "Enable Automatic Assignment to Customer Group"
-     * toggle (Stores > Configuration > Ewave > Customer VAT > Assign by
-     * specific address attributes), so this store's existing VAT-processing
-     * setting is respected instead of always validating regardless of it.
-     */
-    private function isVatValidationEnabled(): bool
-    {
-        $storeId = (int) $this->storeManager->getStore()->getId();
-        return $this->vatConfig->isAutoGroupAssignEnabled($storeId);
     }
 
     /**

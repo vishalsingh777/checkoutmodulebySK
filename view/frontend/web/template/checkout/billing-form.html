@@ -31,7 +31,9 @@
                                        optionsCaption: '-- Select --', value: country"></select>
                 </div>
                 <div class="field">
-                    <label>Billing Profile</label>
+                    <label>Billing Profile
+                        <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Choose whether you are paying for yourself (Self-funded) or your registration is being paid for by your employer or another organisation (Sponsored by Organisation).</span></span>
+                    </label>
                     <select data-bind="value: financingProfile">
                         <option value="b2c">Self-funded</option>
                         <option value="b2b">Sponsored by Organisation</option>
@@ -39,7 +41,9 @@
                 </div>
                 <!-- ko if: showTaxStatus -->
                 <div class="field">
-                    <label>Tax Status</label>
+                    <label>Tax Status
+                        <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Indicates whether your organisation is registered for tax purposes, not registered, or exempt in the billing country selected.</span></span>
+                    </label>
                     <select data-bind="options: taxStatusList, optionsValue: 'value', optionsText: 'label', value: taxStatus"></select>
                 </div>
                 <!-- /ko -->
@@ -191,11 +195,15 @@
 
                 <div class="field-row two-col">
                     <div class="field" data-bind="css: {'_error': hasError('companyLegalName')}">
-                        <label>Company Full Legal Name <span class="req">*</span></label>
+                        <label>Company Full Legal Name <span class="req">*</span>
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The full registered legal name of your company as it appears on official registration documents.</span></span>
+                        </label>
                         <input type="text" data-bind="value: companyLegalName, valueUpdate: 'input', enable: !isCompanyNameAuto()"/>
                     </div>
                     <div class="field">
-                        <label>Commercial Company Name</label>
+                        <label>Commercial Company Name
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The trading or brand name your company uses commercially, if different from its legal name.</span></span>
+                        </label>
                         <input type="text" data-bind="value: companyTradeName, valueUpdate: 'input'"/>
                     </div>
                 </div>
@@ -225,13 +233,17 @@
                 <!-- ko if: isFrance -->
                 <div class="field-row two-col">
                     <div class="field" data-bind="css: {'_error': hasError('siret')}">
-                        <label>SIRET <span class="req">*</span></label>
+                        <label>SIRET <span class="req">*</span>
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">A unique 14-digit number identifying your company's establishment, issued by INSEE (France).</span></span>
+                        </label>
                         <input type="text" maxlength="14" data-bind="value: siret, valueUpdate: 'input'"/>
                         <p class="insead-field-status" data-bind="visible: siretStatus() !== 'idle', text: siretMessage(),
                            css: {'_valid': siretStatus() === 'valid', '_invalid': siretStatus() === 'invalid'}"></p>
                     </div>
                     <div class="field">
-                        <label>SIREN Number</label>
+                        <label>SIREN Number
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The first 9 digits of your SIRET number, identifying your company at the national level. Auto-filled from SIRET.</span></span>
+                        </label>
                         <input type="text" data-bind="value: siren" disabled/>
                     </div>
                 </div>
@@ -275,18 +287,20 @@
                         <label>
                             <span data-bind="text: label"></span>
                             <!-- ko if: required --><span class="req">*</span><!-- /ko -->
+                            <!-- ko if: tooltip -->
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text" data-bind="text: tooltip"></span></span>
+                            <!-- /ko -->
                         </label>
                         <!-- ko if: isFile -->
                         <input type="file" accept=".pdf,.jpg,.jpeg,.png"
                                data-bind="event: {change: function(d,e){ $parent.setTaxExemptFile(code, value, e.target.files.length ? e.target.files[0] : null); }}"/>
                         <!-- /ko -->
                         <!-- ko ifnot: isFile -->
-                        <input type="text" data-bind="value: value, valueUpdate: 'input',
-                               event: {blur: function(d,e){ $parent.validateVatField(d); }}"/>
-                        <!-- ko if: isVat -->
-                        <p class="insead-field-status" data-bind="visible: vatStatus() !== 'idle', text: vatMessage(),
-                           css: {'_valid': vatStatus() === 'valid', '_invalid': vatStatus() === 'invalid'}"></p>
+                        <input type="text" data-bind="value: value, valueUpdate: 'input'"/>
                         <!-- /ko -->
+                        <!-- ko if: code === 'vat_intracommunity' -->
+                        <p class="insead-field-status" data-bind="visible: $parent.vatStatus() !== 'idle', text: $parent.vatMessage(),
+                           css: {'_valid': $parent.vatStatus() === 'valid', '_invalid': $parent.vatStatus() === 'invalid'}"></p>
                         <!-- /ko -->
                     </div>
                 </div>
@@ -320,7 +334,7 @@
                      Order summary and discount code are shown there by native
                      checkout itself; Declarations and the Proforma button are
                      added onto that same page via Block\PaymentPageExtras. -->
-                <button class="insead-btn" data-bind="click: proceedToPayment, disable: isLoading() || vatBlocksProceed()">
+                <button class="insead-btn" data-bind="click: proceedToPayment, disable: isLoading() || vatBlocksSubmit()">
                     <span data-bind="visible: !isLoading()">Continue to Payment</span>
                     <span data-bind="visible: isLoading()">Saving…</span>
                 </button>

@@ -9,6 +9,26 @@
                 <!-- GST Declaration applies to programmes held in Singapore. -->
                 <programme_in_singapore>1</programme_in_singapore>
             </insead_customcheckout>
+            <insee_lookup>
+                <!-- Off by default until an API key is configured. -->
+                <enabled>0</enabled>
+                <api_base_url>https://api.insee.fr/api-sirene/3.11</api_base_url>
+            </insee_lookup>
+            <!--
+                Defaults match the same 6 customer groups Ewave_CustomerVat
+                already uses in production (icp_fra / iapl_edp_fr) — see
+                Model\Vat\CustomerGroupResolver — so behavior is unchanged
+                out of the box; override per website/store if a group ID
+                differs elsewhere.
+            -->
+            <vat_group>
+                <eu_with_vat_and_letter>14</eu_with_vat_and_letter>
+                <eu_with_vat_without_letter>17</eu_with_vat_without_letter>
+                <eu_without_vat_and_letter>20</eu_without_vat_and_letter>
+                <eu_without_vat_without_letter>23</eu_without_vat_without_letter>
+                <non_eu_with_letter>26</non_eu_with_letter>
+                <non_eu_without_letter>29</non_eu_without_letter>
+            </vat_group>
         </insead_checkout>
     </default>
 </config>

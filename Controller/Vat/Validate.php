@@ -11,22 +11,13 @@ use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Data\Form\FormKey\Validator as FormKeyValidator;
 use Magento\Customer\Model\Vat;
-use Magento\Store\Model\StoreManagerInterface;
-use Ewave\CustomerVat\Helper\AddressAttributeConfig;
 use Psr\Log\LoggerInterface;
 
 /**
  * Validates a VAT Intracommunity Number against the EU VIES service using
- * Magento's own built-in VAT validator (Magento\Customer\Model\Vat) — the
- * same mechanism behind Stores > Configuration > Customers > Customer
- * Configuration > Create New Account Options auto-group-assignment, and the
- * one Ewave_CustomerVat's own VatValidator wraps for the customer-group
- * switch. Reused directly here rather than writing custom VAT format regex.
- *
- * Gated behind Ewave_CustomerVat's own "Enable Automatic Assignment to
- * Customer Group" toggle (ewave_customervat/address_attribute/
- * auto_group_assign) so a store that has that mechanism turned off doesn't
- * get live VAT validation either — one config, not two overlapping ones.
+ * only core Magento (Magento\Customer\Model\Vat — module-customer). No
+ * dependency on any third-party module or store-level toggle: this always
+ * runs when called, for any EU country code Vat::checkVatNumber() accepts.
  */
 class Validate implements HttpPostActionInterface, CsrfAwareActionInterface
 {
@@ -35,8 +26,6 @@ class Validate implements HttpPostActionInterface, CsrfAwareActionInterface
         private readonly JsonFactory $resultJsonFactory,
         private readonly FormKeyValidator $formKeyValidator,
         private readonly Vat $vat,
-        private readonly StoreManagerInterface $storeManager,
-        private readonly AddressAttributeConfig $vatConfig,
         private readonly LoggerInterface $logger
     ) {
     }
@@ -50,29 +39,21 @@ class Validate implements HttpPostActionInterface, CsrfAwareActionInterface
         if ($countryId === '' || $vatNumber === '') {
             return $result->setData([
                 'success' => false,
-                'valid'   => false,
+                'valid'   => null,
                 'message' => __('Enter a country and VAT number to validate.'),
             ]);
         }
 
+        if (!$this->vat->isCountryInEU($countryId)) {
+            return $result->setData([
+                'success' => false,
+                'valid'   => null,
+                'message' => __('VAT validation is only available for EU countries.'),
+            ]);
+        }
+
         try {
-            $storeId = (int) $this->storeManager->getStore()->getId();
-
-            if (!$this->vatConfig->isAutoGroupAssignEnabled($storeId)) {
-                // VAT-based processing is off for this store (admin setting) —
-                // silently skip rather than validating against its wishes.
-                return $result->setData(['success' => true, 'valid' => null, 'message' => '']);
-            }
-
-            $merchantCountryCode = $this->vat->getMerchantCountryCode($storeId);
-            $merchantVatNumber = $this->vat->getMerchantVatNumber($storeId);
-
-            $response = $this->vat->checkVatNumber(
-                $countryId,
-                $vatNumber,
-                $merchantVatNumber !== '' ? $merchantCountryCode : '',
-                $merchantVatNumber
-            );
+            $response = $this->vat->checkVatNumber($countryId, $vatNumber);
 
             if (!$response->getRequestSuccess()) {
                 return $result->setData([

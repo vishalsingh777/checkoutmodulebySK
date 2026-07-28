@@ -21,6 +21,62 @@
                     <comment>Controls the GST Declaration block: shown for non-Singapore, non-EU companies only when the programme is held in Singapore.</comment>
                 </field>
             </group>
+            <group id="vat_group" translate="label" type="text" sortOrder="1005"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>VAT / Tax Customer Group Mapping</label>
+                <comment>Which customer group to switch the quote to during tax calculation, based on billing country (EU/non-EU), VAT Intracommunity validity, and whether a supporting document (Certificate ID / Tax Exempt File) is present. See Observer\Vat\SetQuoteCustomerGroup.</comment>
+                <field id="eu_with_vat_and_letter" translate="label" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>EU, Valid VAT, With Letter</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="eu_with_vat_without_letter" translate="label" type="select" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>EU, Valid VAT, Without Letter</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="eu_without_vat_and_letter" translate="label" type="select" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>EU, No/Invalid VAT, With Letter</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="eu_without_vat_without_letter" translate="label" type="select" sortOrder="40"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>EU, No/Invalid VAT, Without Letter</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="non_eu_with_letter" translate="label" type="select" sortOrder="50"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Non-EU, With Letter</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="non_eu_without_letter" translate="label" type="select" sortOrder="60"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Non-EU, Without Letter</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+            </group>
+            <group id="insee_lookup" translate="label" type="text" sortOrder="1010"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>France Company Lookup (INSEE)</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable SIRET Auto-Fill</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Looks up the company legal name, trade name and postal address from the INSEE Sirene API once a valid 14-digit SIRET is entered on the France billing form.</comment>
+                </field>
+                <field id="api_key" translate="label comment" type="obscure" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>INSEE API Key</label>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <comment>Value of the X-INSEE-Api-Key-Integration header, issued via your INSEE api.insee.fr application.</comment>
+                </field>
+                <field id="api_base_url" translate="label comment" type="text" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>INSEE Sirene API Base URL</label>
+                    <comment>E.g. https://api.insee.fr/api-sirene/3.11 — change only if INSEE ships a new API version.</comment>
+                </field>
+            </group>
         </section>
     </system>
 </config>

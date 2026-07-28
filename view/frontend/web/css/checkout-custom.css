@@ -261,7 +261,71 @@
 .insead-field-status._valid { color: var(--insead-green-text); }
 .insead-field-status._invalid { color: var(--insead-error); }
 
-/* ---------- Alert ---------- */
+/* ---------- Field tooltips ---------- */
+.insead-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--insead-muted);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    font-style: normal;
+    line-height: 1;
+    cursor: help;
+    vertical-align: middle;
+}
+.insead-tooltip:hover,
+.insead-tooltip:focus {
+    background: var(--insead-green);
+    outline: none;
+}
+.insead-tooltip__text {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 260px;
+    background: var(--insead-text);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.4;
+    padding: 8px 10px;
+    border-radius: 6px;
+    text-align: left;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .15s ease;
+    z-index: 20;
+    pointer-events: none;
+}
+.insead-tooltip__text::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--insead-text);
+}
+.insead-tooltip:hover .insead-tooltip__text,
+.insead-tooltip:focus .insead-tooltip__text {
+    opacity: 1;
+    visibility: visible;
+}
+@media (max-width: 900px) {
+    .insead-tooltip__text { left: 0; transform: none; }
+    .insead-tooltip__text::after { left: 14px; }
+}
+
+/* ---------- Alert End Of Tooltips---------- */
 .insead-alert {
     background: #fdecea;
     border: 1px solid #f5c6cb;

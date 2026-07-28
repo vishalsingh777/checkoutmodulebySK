@@ -96,23 +96,40 @@ define([
 
     // Dynamic Tax & Legal Information matrix (spec: tax-fields-changelogic md).
     // Each entry maps to a quote column "code"; type: req | opt | file.
-    var DUNS     = {code: 'duns_number',    label: 'D-U-N-S Number (optional)',       type: 'opt'};
-    var PO       = {code: 'po_number',      label: 'PO Number',                       type: 'opt'};
-    var ROUTING  = {code: 'routing_address',label: 'Routing Address',                 type: 'opt'};
-    var TAXREG   = {code: 'tax_id_number',  label: 'Tax Registration Number',         type: 'opt'};
-    var CERT_OPT = {code: 'certificate_id', label: 'Certificate ID',                  type: 'opt'};
-    var CERT_REQ = {code: 'certificate_id', label: 'Certificate ID',                  type: 'req'};
-    var UPLOAD     = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file'};
-    var UPLOAD_REQ = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file_req'};
-    var VATUAE   = {code: 'vat_uae',        label: 'UAE VAT Number',                  type: 'req'};
-    var TRN      = {code: 'trn',             label: 'TRN',                             type: 'req'};
-    var EIN      = {code: 'ein',             label: 'EIN',                             type: 'req'};
-    var REG_LABEL= {code: 'reg_type_label', label: 'Registration Type',               type: 'opt'};
-    var REG_VALUE= {code: 'reg_type_value', label: 'Registration Type Value',         type: 'opt'};
-    var VAT_IC   = {code: 'vat_intracommunity', label: 'VAT Intracommunity Number',   type: 'req'};
-    var UEN_SG   = {code: 'uen', label: 'Business Registration Number (UEN)',         type: 'req'};
-    var UEN_GEN  = {code: 'uen', label: 'Business Registration Number',               type: 'req'};
-    var GST_NUM  = {code: 'gst_number', label: 'GST Number',                          type: 'req'};
+    var DUNS     = {code: 'duns_number',    label: 'D-U-N-S Number (optional)',       type: 'opt',
+        tooltip: 'A unique nine-digit identifier issued by Dun & Bradstreet used to identify your business globally.'};
+    var PO       = {code: 'po_number',      label: 'PO Number',                       type: 'opt',
+        tooltip: "Your organisation's Purchase Order number, if applicable, used for internal invoice matching."};
+    var ROUTING  = {code: 'routing_address',label: 'Routing Address',                 type: 'opt',
+        tooltip: 'The address invoices should be routed to within your organisation, if different from the postal address above.'};
+    var TAXREG   = {code: 'tax_id_number',  label: 'Tax Registration Number',         type: 'opt',
+        tooltip: "Your company's official tax registration number issued by the local tax authority."};
+    var CERT_OPT = {code: 'certificate_id', label: 'Certificate ID',                  type: 'opt',
+        tooltip: 'Reference number of the certificate supporting your tax-exempt status.'};
+    var CERT_REQ = {code: 'certificate_id', label: 'Certificate ID',                  type: 'req',
+        tooltip: 'Reference number of the certificate supporting your tax-exempt status.'};
+    var UPLOAD     = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file',
+        tooltip: 'Upload a copy of your valid tax exemption certificate (PDF or image).'};
+    var UPLOAD_REQ = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file_req',
+        tooltip: 'Upload a copy of your valid tax exemption certificate (PDF or image).'};
+    var VATUAE   = {code: 'vat_uae',        label: 'UAE VAT Number',                  type: 'req',
+        tooltip: "Your company's UAE VAT registration number, issued by the Federal Tax Authority."};
+    var TRN      = {code: 'trn',             label: 'TRN',                             type: 'req',
+        tooltip: 'Tax Registration Number issued by the UAE Federal Tax Authority.'};
+    var EIN      = {code: 'ein',             label: 'EIN',                             type: 'req',
+        tooltip: "Your company's Employer Identification Number issued by the US IRS."};
+    var REG_LABEL= {code: 'reg_type_label', label: 'Registration Type',               type: 'opt',
+        tooltip: 'The type of business registration number your company holds (e.g. EIN, DUNS).'};
+    var REG_VALUE= {code: 'reg_type_value', label: 'Registration Type Value',         type: 'opt',
+        tooltip: 'The value of the registration number selected above.'};
+    var VAT_IC   = {code: 'vat_intracommunity', label: 'VAT Intracommunity Number',   type: 'req',
+        tooltip: "Your company's Intracommunity VAT number, validated against the EU VIES database."};
+    var UEN_SG   = {code: 'uen', label: 'Business Registration Number (UEN)',         type: 'req',
+        tooltip: "Your company's Unique Entity Number issued by the Singapore government."};
+    var UEN_GEN  = {code: 'uen', label: 'Business Registration Number',               type: 'req',
+        tooltip: 'The official registration number that identifies your business (e.g. company registration number).'};
+    var GST_NUM  = {code: 'gst_number', label: 'GST Number',                          type: 'req',
+        tooltip: "Your company's Goods & Services Tax registration number."};
 
     var fieldDefs = {
         // France: SIRET/SIREN handled separately in Organisation Details.
@@ -219,12 +236,6 @@ define([
             this.countriesList = ko.observableArray(this.countries || []);
             this.programmeIsSingapore = !!this.programmeInSingapore;
 
-            // Gates the live VAT Intracommunity check — mirrors Ewave_CustomerVat's
-            // own "Enable Automatic Assignment to Customer Group" store setting
-            // (ewave_customervat/address_attribute/auto_group_assign), so a store
-            // with that mechanism off doesn't get live VAT validation either.
-            this.vatValidationEnabled = !!this.vatValidationEnabled;
-
             // Passthrough values from the populate flow — not editable in the form
             // but must round-trip to Save.php so they persist on the quote/customer.
             this._peoplesoftId = pf.peoplesoft_id || '';
@@ -274,6 +285,12 @@ define([
             // Live SIRET checksum feedback: idle | valid | invalid.
             this.siretStatus = ko.observable('idle');
             this.siretMessage = ko.observable('');
+
+            // Live VAT Intracommunity Number feedback (VIES, via core Magento
+            // Magento\Customer\Model\Vat — see Controller\Vat\Validate):
+            // idle | checking | valid | invalid | unknown.
+            this.vatStatus = ko.observable('idle');
+            this.vatMessage = ko.observable('');
 
             // ---- B2B — Postal address (shares the populated billing address) ----
             this.companyStreet1 = ko.observable(pf.street1 || '');
@@ -341,16 +358,16 @@ define([
                 return self.isB2C() && self.programmeIsSingapore
                     && residencyExcluded.indexOf(self.country()) === -1;
             });
-            // Blocks "Continue to Payment" until the VAT Intracommunity Number
-            // field (when it's actually shown — B2B + FR/EU + Tax Registered)
-            // has come back "valid" from the live VIES check. Only applies on
-            // stores where that check is enabled at all (vatValidationEnabled) —
-            // otherwise the button would never enable on stores that never
-            // asked for live VAT validation in the first place.
-            this.vatBlocksProceed = ko.computed(function () {
-                if (!self.isB2B() || !self.vatValidationEnabled) { return false; }
-                var vatField = self.dynamicFields().filter(function (f) { return f.isVat; })[0];
-                return !!vatField && vatField.vatStatus() !== 'valid';
+            // Blocks "Continue to Payment" while the VAT Intracommunity Number
+            // field is on screen (FR/EU, Tax Registered) and either mid-check or
+            // confirmed invalid by VIES. A field that isn't currently rendered/
+            // required (e.g. Not Registered) never blocks submission.
+            this.vatBlocksSubmit = ko.computed(function () {
+                var field = self.dynamicFields().filter(function (f) {
+                    return f.code === 'vat_intracommunity';
+                })[0];
+                if (!field || !field.required || !field.value()) { return false; }
+                return self.vatStatus() === 'invalid' || self.vatStatus() === 'checking';
             });
         },
 
@@ -359,6 +376,9 @@ define([
             this.country.subscribe(function (val) {
                 self._loadRegions(val);
                 self.renderFields();
+                // VAT validity is country-dependent (VIES checks the number
+                // against the given country code) — re-check on country change.
+                self._scheduleVatValidation();
             });
             this.taxStatus.subscribe(function () { self.renderFields(); });
             // When switching B2C ↔ B2B: refresh dynamic fields and reset the GST
@@ -465,28 +485,13 @@ define([
                 return {
                     code: def.code,
                     label: $t(def.label),
+                    tooltip: def.tooltip ? $t(def.tooltip) : '',
                     type: def.type,
                     isFile: def.type === 'file' || def.type === 'file_req',
                     required: def.type === 'req' || def.type === 'file_req',
-                    value: self.valueFor(def.code),
-                    // VAT Intracommunity Number only: live EU VIES validation state.
-                    isVat: def.code === 'vat_intracommunity',
-                    vatStatus: ko.observable('idle'), // idle | checking | valid | invalid | unknown
-                    vatMessage: ko.observable('')
+                    value: self.valueFor(def.code)
                 };
             }));
-
-            // The VAT Intracommunity field validates against a specific country
-            // (see validateVatField), so a previously "valid" result becomes stale
-            // the moment the Country dropdown changes — a VAT number valid for
-            // France isn't necessarily valid for Germany. renderFields() already
-            // resets that field's status to idle above; re-run the check
-            // immediately here (rather than waiting for the user to blur the
-            // field again) whenever it's already got a value.
-            var vatField = this.dynamicFields().filter(function (f) { return f.isVat; })[0];
-            if (vatField && vatField.value() && this.vatValidationEnabled) {
-                this.validateVatField(vatField);
-            }
 
             // France: auto-extract SIREN (first 9 digits) from SIRET, look up
             // the legal name from INSEE once the full 14-digit SIRET is entered,
@@ -513,55 +518,77 @@ define([
                 });
                 this._sirenBound = true;
             }
+
+            // VAT Intracommunity Number: live VIES check (see Controller\Vat\Validate),
+            // debounced so it doesn't fire on every keystroke. Bound once; re-runs
+            // whenever the field's value changes for any country group that uses it.
+            if (!this._vatBound) {
+                this.valueFor('vat_intracommunity').subscribe(function () {
+                    self._scheduleVatValidation();
+                });
+                this._vatBound = true;
+                // A prefilled VAT number (returning shopper / earlier save) needs
+                // checking too, not just edits made after this point.
+                if (this.valueFor('vat_intracommunity')()) { this._scheduleVatValidation(); }
+            }
+        },
+
+        /** Debounced VIES check for the current VAT Intracommunity Number + country. */
+        _scheduleVatValidation: function () {
+            var self = this;
+            var value = this.valueFor('vat_intracommunity')();
+
+            clearTimeout(this._vatTimer);
+
+            if (!value) {
+                this.vatStatus('idle');
+                this.vatMessage('');
+                return;
+            }
+            if (!this.endpointUrls.validateVat) { return; }
+
+            this.vatStatus('checking');
+            this.vatMessage('');
+            this._vatTimer = setTimeout(function () {
+                var requestedValue = value;
+                var requestedCountry = self.country();
+                $.ajax({
+                    url: self.endpointUrls.validateVat, method: 'POST', dataType: 'json',
+                    data: {form_key: self.formKeyValue, country_id: requestedCountry, vat_number: requestedValue}
+                }).done(function (res) {
+                    // Stale response (value/country changed while the request was
+                    // in flight) — a fresher request already superseded this one.
+                    if (requestedValue !== self.valueFor('vat_intracommunity')() || requestedCountry !== self.country()) {
+                        return;
+                    }
+                    if (!res || !res.success || res.valid === null || res.valid === undefined) {
+                        self.vatStatus('unknown');
+                        self.vatMessage((res && res.message) || $t('Unable to verify the VAT number right now.'));
+                    } else if (res.valid) {
+                        self.vatStatus('valid');
+                        self.vatMessage(res.message || $t('VAT number is valid.'));
+                    } else {
+                        self.vatStatus('invalid');
+                        self.vatMessage(res.message || $t('VAT number is not valid.'));
+                    }
+                }).fail(function () {
+                    if (requestedValue !== self.valueFor('vat_intracommunity')() || requestedCountry !== self.country()) {
+                        return;
+                    }
+                    self.vatStatus('unknown');
+                    self.vatMessage($t('Unable to verify the VAT number right now.'));
+                });
+            }, 600);
         },
 
         /**
-         * Validate the VAT Intracommunity Number field (on blur) against the EU
-         * VIES service, via Magento's own built-in VAT validator
-         * (Magento\Customer\Model\Vat — the same one Ewave_CustomerVat's
-         * customer-group switch relies on for auto tax-group assignment).
-         * Gated by vatValidationEnabled (mirrors that same module's own
-         * "Enable Automatic Assignment to Customer Group" store setting).
+         * INSEE (FR) company auto-fill: legal name, trade name, and postal
+         * address from the SIRET the shopper just typed (see
+         * Controller\Company\Lookup / Model\Insee\SireneClient). Each field
+         * is only overwritten when INSEE actually returned a value, so a
+         * field INSEE has nothing for (e.g. street2 is often blank) never
+         * clobbers something the shopper already typed.
          */
-        validateVatField: function (field) {
-            var self = this;
-            var vatNumber = (field.value() || '').trim();
-            if (!field.isVat || !this.vatValidationEnabled || !this.endpointUrls.validateVat) { return; }
-            if (vatNumber === '') {
-                field.vatStatus('idle');
-                field.vatMessage('');
-                return;
-            }
-            field.vatStatus('checking');
-            field.vatMessage($t('Validating…'));
-            $.ajax({
-                url: this.endpointUrls.validateVat,
-                method: 'POST',
-                dataType: 'json',
-                data: {
-                    form_key: this.formKeyValue,
-                    country_id: this.country(),
-                    vat_number: vatNumber
-                }
-            }).done(function (res) {
-                if (!res || !res.success) {
-                    field.vatStatus('unknown');
-                    field.vatMessage((res && res.message) || $t('Unable to validate the VAT number right now.'));
-                    return;
-                }
-                if (res.valid === null) {
-                    field.vatStatus('unknown');
-                } else {
-                    field.vatStatus(res.valid ? 'valid' : 'invalid');
-                }
-                field.vatMessage(res.message || '');
-            }).fail(function () {
-                field.vatStatus('unknown');
-                field.vatMessage($t('Unable to validate the VAT number right now.'));
-            });
-        },
-
-        /** INSEE (FR) / VIES (EU) company name auto-fill. */
         lookupCompany: function (registration) {
             var self = this;
             if (!this.endpointUrls.lookup) { return; }
@@ -569,10 +596,16 @@ define([
                 url: this.endpointUrls.lookup, method: 'GET', dataType: 'json',
                 data: {registration: registration, country: this.country()}
             }).done(function (data) {
-                if (data && data.legalName) {
+                if (!data) { return; }
+                if (data.legalName) {
                     self.companyLegalName(data.legalName);
                     self.isCompanyNameAuto(true);
                 }
+                if (data.tradeName) { self.companyTradeName(data.tradeName); }
+                if (data.street1) { self.companyStreet1(data.street1); }
+                if (data.street2) { self.companyStreet2(data.street2); }
+                if (data.city) { self.companyCity(data.city); }
+                if (data.postcode) { self.companyZip(data.postcode); }
             });
         },
 
@@ -581,6 +614,7 @@ define([
         hasError: function (key) { return !!this.errors()[key]; },
 
         validateBilling: function () {
+            var self = this;
             var errs = {};
             var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -613,6 +647,10 @@ define([
                 if (this.isFrance() && !isValidSiret(this.siret())) { errs.siret = true; }
                 this.dynamicFields().forEach(function (f) {
                     if (f.required && !f.value()) { errs['dyn_' + f.code] = true; }
+                    if (f.code === 'vat_intracommunity' && f.required && f.value()
+                        && (self.vatStatus() === 'invalid' || self.vatStatus() === 'checking')) {
+                        errs['dyn_' + f.code] = true;
+                    }
                 });
                 if (this.showGstDeclaration() && !this.gstDeclaration()) { errs.gstDeclaration = true; }
             }
