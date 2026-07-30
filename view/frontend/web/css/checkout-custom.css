@@ -228,7 +228,13 @@
     cursor: pointer;
 }
 .insead-btn:hover { filter: brightness(.97); }
-.insead-btn[disabled] { opacity: .6; cursor: not-allowed; }
+.insead-btn[disabled] {
+    background: #d9dbde;
+    color: #8a8f98;
+    cursor: not-allowed;
+    filter: none;
+}
+.insead-btn[disabled]:hover { filter: none; }
 .insead-btn._ghost {
     background: #eef0f2;
     color: var(--insead-text);

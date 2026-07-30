@@ -9,18 +9,27 @@
     <event name="checkout_submit_all_after">
         <observer name="insead_export_mg_organization"
                   instance="Insead\CustomCheckout\Observer\ExportOrganizationOnOrderPlaced"/>
+        <observer name="insead_copy_gst_amount_to_order"
+                  instance="Insead\CustomCheckout\Observer\Gst\CopyGstAmountToOrder"/>
     </event>
     <!--
-        VAT-based customer group assignment for tax calculation — see
-        Observer\Vat\SetQuoteCustomerGroup for the coexistence rationale
-        (only acts on quotes that went through this module's own checkout).
+        VAT-based (EU/non-EU) and GST-based (Singapore legal entity) customer
+        group assignment for tax calculation — see Observer\Vat and
+        Observer\Gst SetQuoteCustomerGroup classes for the coexistence
+        rationale (only one of the two acts on a given quote, gated by the
+        store's `programme_in_singapore` config flag; both only ever act on
+        quotes that went through this module's own checkout).
     -->
     <event name="sales_quote_address_collect_totals_before">
         <observer name="insead_set_vat_customer_group"
                   instance="Insead\CustomCheckout\Observer\Vat\SetQuoteCustomerGroup"/>
+        <observer name="insead_set_gst_customer_group"
+                  instance="Insead\CustomCheckout\Observer\Gst\SetQuoteCustomerGroup"/>
     </event>
     <event name="sales_quote_address_collect_totals_after">
         <observer name="insead_restore_vat_customer_group"
                   instance="Insead\CustomCheckout\Observer\Vat\RestoreQuoteCustomerGroup"/>
+        <observer name="insead_restore_gst_customer_group"
+                  instance="Insead\CustomCheckout\Observer\Gst\RestoreQuoteCustomerGroup"/>
     </event>
 </config>

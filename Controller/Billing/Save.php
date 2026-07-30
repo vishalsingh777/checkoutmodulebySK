@@ -305,9 +305,24 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         return $map[$lookup] ?? null;
     }
 
+    /**
+     * On a stale/invalid form key, respond with the same JSON shape execute()
+     * itself returns on failure — the checkout JS already reads res.message
+     * into the globalError banner (see billing-form.js's proceedToPayment/
+     * saveBilling). Without this override, Magento's default CSRF handling
+     * replaces the response with an HTML redirect instead, which the AJAX
+     * call's dataType: 'json' can't parse — surfacing as a confusing generic
+     * failure rather than "please refresh the page".
+     */
     public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
     {
-        return null;
+        $result = $this->resultJsonFactory->create();
+        $result->setData([
+            'success' => false,
+            'message' => __('Your session has expired. Please refresh the page and try again.'),
+        ]);
+
+        return new InvalidRequestException($result);
     }
 
     public function validateForCsrf(RequestInterface $request): ?bool

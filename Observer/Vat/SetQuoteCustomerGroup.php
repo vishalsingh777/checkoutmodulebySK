@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace Insead\CustomCheckout\Observer\Vat;
 
 use Insead\CustomCheckout\Model\Vat\CustomerGroupResolver;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
+use Magento\Store\Model\ScopeInterface;
 
 /**
  * Temporarily swaps the quote's customer group to one of the 6 existing
@@ -18,13 +20,24 @@ use Magento\Framework\Event\ObserverInterface;
  * that went through this module's own checkout flow (see
  * Controller\Billing\Save) — every other quote on the site (any other
  * store/flow, including ones Ewave_CustomerVat still handles) is untouched.
+ *
+ * Also skips any store with `insead_checkout/gst_group/enabled` on — those
+ * stores use Observer\Gst\SetQuoteCustomerGroup's B2C/B2C_GST/B2B/B2B_EXEMPT
+ * mapping instead, and having both mechanisms swap the same quote's group
+ * within one totals-collection cycle would corrupt whichever one restores
+ * last (see that class's docblock). Deliberately NOT gated on
+ * `programme_in_singapore` — that flag means "the course takes place in
+ * Singapore" and is already true on this mechanism's own stores
+ * (icp_fra/lhub_fra/icp_usa), so using it here would have disabled this
+ * working mechanism on those stores.
  */
 class SetQuoteCustomerGroup implements ObserverInterface
 {
     public const PROCESSED_FLAG = 'insead_vat_group_processed';
 
     public function __construct(
-        private readonly CustomerGroupResolver $groupResolver
+        private readonly CustomerGroupResolver $groupResolver,
+        private readonly ScopeConfigInterface $scopeConfig
     ) {
     }
 
@@ -36,6 +49,13 @@ class SetQuoteCustomerGroup implements ObserverInterface
         }
         if ($quote->hasData(self::PROCESSED_FLAG)) {
             return; // already swapped earlier in this same totals-collection cycle
+        }
+        if ($this->scopeConfig->isSetFlag(
+            'insead_checkout/gst_group/enabled',
+            ScopeInterface::SCOPE_STORE,
+            $quote->getStoreId()
+        )) {
+            return;
         }
 
         $address = $quote->getBillingAddress();

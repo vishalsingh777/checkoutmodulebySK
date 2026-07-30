@@ -40,6 +40,10 @@
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
         <column xsi:type="smallint" name="insead_billing_confirmed" padding="5" unsigned="true" nullable="true" default="0"
                 comment="1 once the INSEAD Tax &amp; Legal / Billing Information step has been saved for this quote. Gates the handoff from the custom billing step to native Magento checkout for payment — see Observer\AddCustomCheckoutLayoutHandle."/>
+        <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
+                comment="Singapore GST computed by Model\Total\Quote\Gst for B2B orders on the Singapore selling entity, based on the gst_declaration answer (not billing/shipping country) — see that class's docblock."/>
+        <column xsi:type="decimal" name="insead_base_gst_amount" scale="4" precision="20" nullable="true"
+                comment="Same as insead_gst_amount, in base currency."/>
     </table>
     <table name="sales_order">
         <column xsi:type="varchar" name="gender" nullable="true" length="32" comment="Customer Gender"/>
@@ -70,6 +74,10 @@
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
+        <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
+                comment="Singapore GST computed by Model\Total\Quote\Gst for B2B orders on the Singapore selling entity, based on the gst_declaration answer (not billing/shipping country) — see that class's docblock."/>
+        <column xsi:type="decimal" name="insead_base_gst_amount" scale="4" precision="20" nullable="true"
+                comment="Same as insead_gst_amount, in base currency."/>
     </table>
     <table name="customer_entity">
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>

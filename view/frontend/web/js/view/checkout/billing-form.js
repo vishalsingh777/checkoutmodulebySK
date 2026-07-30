@@ -17,8 +17,9 @@ define([
     'uiComponent',
     'ko',
     'jquery',
-    'mage/translate'
-], function (Component, ko, $, $t) {
+    'mage/translate',
+    'Magento_Ui/js/modal/alert'
+], function (Component, ko, $, $t, alert) {
     'use strict';
 
     // EU member-state ISO codes (France is its own group, handled separately
@@ -61,6 +62,8 @@ define([
         }
         return sum % 10 === 0;
     }
+
+    var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     var taxLabels = {
         reg: $t('Tax Registered'),
@@ -167,6 +170,32 @@ define([
         ROW_exempt: [CERT_REQ, DUNS, TAXREG, PO, ROUTING]   // unreachable; no UPLOAD per spec
     };
 
+    // Every quote column any dynamic Tax & Legal field (across all
+    // country-group x tax-status combinations above) can write. Used by
+    // _collectPayload() to blank out columns that fall out of scope on a
+    // country/tax-status change — without this, a value from a field that's
+    // no longer shown (e.g. `uen`/`reg_type_label` auto-filled from a France
+    // SIRET) is simply omitted from the next save's payload, and
+    // Controller\Billing\Save only overwrites a column when its key is
+    // present in the request — so the stale value silently survives on the
+    // quote/order forever instead of being cleared.
+    var allDynamicFieldCodes = [
+        'duns_number', 'po_number', 'routing_address', 'tax_id_number',
+        'certificate_id', 'tax_exempt_file', 'vat_uae', 'trn', 'ein',
+        'reg_type_label', 'reg_type_value', 'vat_intracommunity', 'uen', 'gst_number'
+    ];
+
+    // Custom quote columns that only ever apply to Sponsored/B2B billing.
+    // Sent blank whenever the shopper is on the B2C branch, for the same
+    // reason as allDynamicFieldCodes above — so switching B2B -> B2C on the
+    // same quote clears the earlier B2B organisation/tax data instead of
+    // leaving it stranded.
+    var b2bOnlyColumns = [
+        'tax_registration_status', 'company_legal_name', 'commercial_company_name',
+        'organization_type', 'job_industry', 'gst_declaration',
+        'invoice_recipient_firstname', 'invoice_recipient_lastname', 'invoice_email'
+    ].concat(allDynamicFieldCodes);
+
     // INSEAD organisation type + job industry options.
     var organizationTypes = [
         'Embassy', 'Sole Proprietorship', 'Business', 'Family Business', 'Foundation',
@@ -204,6 +233,12 @@ define([
             countries: [],
             prefill: {},
             programmeInSingapore: true,
+            showGenderFieldB2c: true,
+            showGenderFieldB2b: true,
+            showNationalityFieldB2c: true,
+            showNationalityFieldB2b: true,
+            phoneRequiredB2c: true,
+            phoneRequiredB2b: false,
             urls: {},
             formKey: ''
         },
@@ -231,21 +266,34 @@ define([
             var taxStatuses = ['reg', 'notreg', 'exempt'];
             var isFR = (pf.country_id === 'FR');
 
+            // UI state — created first: valueFor()/_clearOnInput() (used below,
+            // including while pre-seeding dynamic fields) call clearError(),
+            // which reads/writes these.
+            this.errors = ko.observable({});
+            this.globalError = ko.observable('');
+
             this.endpointUrls = this.urls || {};
             this.formKeyValue = this.formKey || '';
             this.countriesList = ko.observableArray(this.countries || []);
             this.programmeIsSingapore = !!this.programmeInSingapore;
+            this.showGenderFieldB2c = !!this.showGenderFieldB2c;
+            this.showGenderFieldB2b = !!this.showGenderFieldB2b;
+            this.showNationalityFieldB2c = !!this.showNationalityFieldB2c;
+            this.showNationalityFieldB2b = !!this.showNationalityFieldB2b;
+            this.phoneRequiredB2c = !!this.phoneRequiredB2c;
+            this.phoneRequiredB2b = !!this.phoneRequiredB2b;
 
             // Passthrough values from the populate flow — not editable in the form
             // but must round-trip to Save.php so they persist on the quote/customer.
             this._peoplesoftId = pf.peoplesoft_id || '';
 
-            // Billing-address identity (name/email/phone). Supplied by the upstream
+            // Billing-address identity (name/email). Supplied by the upstream
             // flow and not shown for Self-funded; used server-side for the address.
             this.customerFirstName = pf.firstname || customer.firstname || '';
             this.customerLastName = pf.lastname || customer.lastname || '';
             this.customerEmail = pf.email || customer.email || '';
-            this.customerTelephone = pf.telephone || '';
+            // Phone pre-fills from the upstream flow but is editable for B2B.
+            this.customerTelephone = ko.observable(pf.telephone || '');
 
             // ---- Selector box ----
             this.country = ko.observable(pf.country_id || 'FR'); // ISO code
@@ -321,15 +369,15 @@ define([
             };
             if (!isFR) { seed.uen = pf.uen; }
             for (var code in seed) {
-                if (seed.hasOwnProperty(code)) { this.fieldValues[code] = ko.observable(seed[code] || ''); }
+                // Route through valueFor() (not a raw ko.observable(...) assignment)
+                // so these pre-seeded fields get the same live error-clearing
+                // subscription as fields created lazily during renderFields().
+                if (seed.hasOwnProperty(code)) { this.valueFor(code)(seed[code] || ''); }
             }
 
             // GST Declaration.
             this.gstDeclaration = ko.observable(pf.gst_declaration || '');
 
-            // UI state.
-            this.errors = ko.observable({});
-            this.globalError = ko.observable('');
             this.isLoading = ko.observable(false);
         },
 
@@ -362,7 +410,16 @@ define([
             // field is on screen (FR/EU, Tax Registered) and either mid-check or
             // confirmed invalid by VIES. A field that isn't currently rendered/
             // required (e.g. Not Registered) never blocks submission.
+            //
+            // Gated on isB2B(): dynamicFields() is built purely from
+            // countryGroup()+taxStatus() and isn't reset when the shopper
+            // switches B2B -> B2C (country/tax status carry over), so without
+            // this guard, a leftover 'checking'/'invalid' vatStatus from an
+            // earlier B2B France/EU selection kept the button disabled forever
+            // after switching to B2C, even though the VAT field is never shown
+            // there at all.
             this.vatBlocksSubmit = ko.computed(function () {
+                if (!self.isB2B()) { return false; }
                 var field = self.dynamicFields().filter(function (f) {
                     return f.code === 'vat_intracommunity';
                 })[0];
@@ -373,20 +430,59 @@ define([
 
         _initSubscriptions: function () {
             var self = this;
+            // Country / Billing Profile / Tax Status all reshape which fields are
+            // shown and required (see renderFields), so any validation error from
+            // before the change is no longer meaningful — clear both the banner
+            // and the per-field highlights rather than leaving stale errors up.
             this.country.subscribe(function (val) {
+                self.globalError('');
+                self.errors({});
                 self._loadRegions(val);
                 self.renderFields();
                 // VAT validity is country-dependent (VIES checks the number
                 // against the given country code) — re-check on country change.
                 self._scheduleVatValidation();
             });
-            this.taxStatus.subscribe(function () { self.renderFields(); });
+            this.taxStatus.subscribe(function () {
+                self.globalError('');
+                self.errors({});
+                self.renderFields();
+            });
             // When switching B2C ↔ B2B: refresh dynamic fields and reset the GST
             // declaration so stale B2B state never leaks into B2C validation.
             this.financingProfile.subscribe(function () {
                 self.globalError('');
+                self.errors({});
                 self.renderFields();
                 self.gstDeclaration('');
+            });
+
+            // Per-field: clear a required-field error/highlight the moment the
+            // shopper enters an acceptable value, rather than waiting for the
+            // next full validateBilling() run (i.e. the next submit attempt).
+            [
+                ['b2cFirstName', this.b2cFirstName], ['b2cLastName', this.b2cLastName],
+                ['b2cEmail', this.b2cEmail, function (v) { return emailRe.test(v || ''); }],
+                ['gender', this.gender], ['nationality', this.nationality],
+                ['street1', this.street1], ['city', this.city],
+                ['residencyDeclaration', this.residencyDeclaration],
+                ['invoiceFirstName', this.invoiceFirstName], ['invoiceLastName', this.invoiceLastName],
+                ['invoiceEmail', this.invoiceEmail, function (v) { return emailRe.test(v || ''); }],
+                ['siret', this.siret, isValidSiret],
+                ['companyLegalName', this.companyLegalName], ['organizationType', this.organizationType],
+                ['jobIndustry', this.jobIndustry], ['companyStreet1', this.companyStreet1],
+                ['companyCity', this.companyCity], ['gstDeclaration', this.gstDeclaration]
+            ].forEach(function (entry) { self._clearOnInput(entry[1], entry[0], entry[2]); });
+
+            // Phone only: full bidirectional live validation — turns red
+            // immediately if cleared back out while required, not just
+            // cleared when filled in (see _liveValidate for why this is
+            // scoped to Phone rather than every field).
+            self._liveValidate(this.b2cPhone, 'b2cPhone', {
+                isRequired: function () { return self.phoneRequiredB2c; }
+            });
+            self._liveValidate(this.customerTelephone, 'customerTelephone', {
+                isRequired: function () { return self.phoneRequiredB2b; }
             });
         },
 
@@ -413,6 +509,12 @@ define([
         valueFor: function (code) {
             if (!this.fieldValues[code]) {
                 this.fieldValues[code] = ko.observable('');
+                // Same live-clear behavior as the static fields (see _clearOnInput)
+                // — required dynamic Tax & Legal fields (Business Registration
+                // Number, DUNS, PO Number, etc.) highlight red via
+                // hasError('dyn_' + code); clear that highlight as soon as a
+                // value is entered, instead of only on the next submit attempt.
+                this._clearOnInput(this.fieldValues[code], 'dyn_' + code);
             }
             return this.fieldValues[code];
         },
@@ -613,10 +715,80 @@ define([
 
         hasError: function (key) { return !!this.errors()[key]; },
 
+        /** Removes one field's error/highlight; clears the top banner too once none remain. */
+        clearError: function (key) {
+            var errs = this.errors();
+            if (!errs[key]) { return; }
+            var next = {};
+            Object.keys(errs).forEach(function (k) {
+                if (k !== key) { next[k] = errs[k]; }
+            });
+            this.errors(next);
+            if (Object.keys(next).length === 0) { this.globalError(''); }
+        },
+
+        /**
+         * Adds one field's error/highlight. Deliberately does NOT touch the
+         * top banner — that only appears after an actual submit attempt (see
+         * validateBilling/proceedToPayment), not just because the shopper
+         * cleared a field mid-edit.
+         */
+        setError: function (key) {
+            var errs = this.errors();
+            if (errs[key]) { return; }
+            var next = {};
+            Object.keys(errs).forEach(function (k) { next[k] = errs[k]; });
+            next[key] = true;
+            this.errors(next);
+        },
+
+        /**
+         * Clears a field's error as soon as it holds an acceptable value —
+         * so a red-highlighted required field (and the top banner, once no
+         * errors remain) resets live as the shopper types, instead of only
+         * on the next full validateBilling() run.
+         */
+        _clearOnInput: function (observable, key, isValid) {
+            var self = this;
+            observable.subscribe(function (val) {
+                if (isValid ? isValid(val) : !!val) { self.clearError(key); }
+            });
+        },
+
+        /**
+         * Like _clearOnInput, but also (re-)shows the error the moment the
+         * field is emptied back out while still required — not just when it
+         * holds an acceptable value. Used only for Phone (see
+         * _initSubscriptions) so clearing an already-filled Phone field
+         * immediately turns it red again, matching what the next submit
+         * attempt would flag, instead of waiting for that submit attempt.
+         *
+         * @param {ko.observable} observable
+         * @param {string} key
+         * @param {{isValid?: function, isRequired?: function}} [options]
+         *   isValid defaults to a truthy check; isRequired defaults to
+         *   always-required (pass one for fields whose requiredness depends
+         *   on the current B2C/B2B profile, config toggle, or country).
+         */
+        _liveValidate: function (observable, key, options) {
+            var self = this;
+            options = options || {};
+            var isValid = options.isValid || function (v) { return !!v; };
+            var isRequired = options.isRequired || function () { return true; };
+            observable.subscribe(function (val) {
+                if (isValid(val)) {
+                    self.clearError(key);
+                } else if (isRequired()) {
+                    self.setError(key);
+                } else {
+                    self.clearError(key);
+                }
+            });
+        },
+
         validateBilling: function () {
             var self = this;
             var errs = {};
-            var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
             if (!this.country()) { errs.country = true; }
 
@@ -624,9 +796,9 @@ define([
                 if (!this.b2cFirstName()) { errs.b2cFirstName = true; }
                 if (!this.b2cLastName()) { errs.b2cLastName = true; }
                 if (this.b2cEmail() && !emailRe.test(this.b2cEmail())) { errs.b2cEmail = true; }
-                if (!this.gender()) { errs.gender = true; }
-                if (!this.b2cPhone()) { errs.b2cPhone = true; }
-                if (!this.nationality()) { errs.nationality = true; }
+                if (this.showGenderFieldB2c && !this.gender()) { errs.gender = true; }
+                if (this.phoneRequiredB2c && !this.b2cPhone()) { errs.b2cPhone = true; }
+                if (this.showNationalityFieldB2c && !this.nationality()) { errs.nationality = true; }
                 if (!this.street1()) { errs.street1 = true; }
                 if (!this.city()) { errs.city = true; }
                 if (this.showResidencyDeclaration() && !this.residencyDeclaration()) {
@@ -636,8 +808,9 @@ define([
                 if (!this.invoiceFirstName()) { errs.invoiceFirstName = true; }
                 if (!this.invoiceLastName()) { errs.invoiceLastName = true; }
                 if (!this.invoiceEmail() || !emailRe.test(this.invoiceEmail())) { errs.invoiceEmail = true; }
-                if (!this.gender()) { errs.gender = true; }
-                if (!this.nationality()) { errs.nationality = true; }
+                if (this.showGenderFieldB2b && !this.gender()) { errs.gender = true; }
+                if (this.phoneRequiredB2b && !this.customerTelephone()) { errs.customerTelephone = true; }
+                if (this.showNationalityFieldB2b && !this.nationality()) { errs.nationality = true; }
                 if (!this.companyLegalName()) { errs.companyLegalName = true; }
                 // companyTradeName (Commercial Company Name) is optional per spec
                 if (!this.organizationType()) { errs.organizationType = true; }
@@ -682,12 +855,17 @@ define([
                 data.region = this.region();
                 data.postcode = this.postcode();
                 data.residency_declaration = this.showResidencyDeclaration() ? this.residencyDeclaration() : '';
+
+                // Blank every B2B-only column so switching B2B -> B2C on the
+                // same quote doesn't leave stale organisation/tax data (e.g.
+                // a France SIRET auto-filled into uen/reg_type_*) behind.
+                b2bOnlyColumns.forEach(function (code) { data[code] = ''; });
             } else {
                 // Billing address contact = invoice recipient.
                 data.firstname = this.invoiceFirstName();
                 data.lastname = this.invoiceLastName();
                 data.email = this.invoiceEmail();
-                data.telephone = this.customerTelephone;
+                data.telephone = this.customerTelephone();
                 data.gender = this.gender();
                 data.nationality = this.nationality();
                 data.street1 = this.companyStreet1();
@@ -705,6 +883,18 @@ define([
                 data.job_industry = this.jobIndustry();
                 data.tax_registration_status = this.taxStatus();
                 data.gst_declaration = this.showGstDeclaration() ? this.gstDeclaration() : '';
+                // B2C-only column — never applicable here.
+                data.residency_declaration = '';
+
+                // Blank every dynamic Tax & Legal column first, then fill in
+                // only the ones currently shown below. Without this, a code
+                // that isn't part of the CURRENT country/tax-status combo
+                // (e.g. `certificate_id` after leaving "Exempt", or `uen`
+                // after leaving France) is simply absent from the payload,
+                // and Controller\Billing\Save only overwrites a column when
+                // its key is present in the request — so the old value from
+                // whatever combo was active last time silently survives.
+                allDynamicFieldCodes.forEach(function (code) { data[code] = ''; });
 
                 // France: SIRET persists in `uen` (EU tax & legal does not use uen).
                 if (this.isFrance() && this.siret()) {
@@ -733,7 +923,9 @@ define([
             var self = this;
             this.globalError('');
             if (!this.validateBilling()) {
-                this.globalError($t('Please complete all required fields highlighted below.'));
+                var msg = $t('Please complete all required fields highlighted below before continuing to payment.');
+                this.globalError(msg);
+                alert({ title: $t('Missing Information'), content: msg });
                 return;
             }
             this.isLoading(true);

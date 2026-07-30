@@ -28,7 +28,9 @@
             "credit_consumption_code": true,
             "gst_declaration": true,
             "residency_declaration": true,
-            "peoplesoft_id": true
+            "peoplesoft_id": true,
+            "insead_gst_amount": true,
+            "insead_base_gst_amount": true
         },
         "insead_billing_confirmed": {
             "column": true
@@ -63,7 +65,9 @@
             "credit_consumption_code": true,
             "gst_declaration": true,
             "residency_declaration": true,
-            "peoplesoft_id": true
+            "peoplesoft_id": true,
+            "insead_gst_amount": true,
+            "insead_base_gst_amount": true
         }
     },
     "customer_entity": {

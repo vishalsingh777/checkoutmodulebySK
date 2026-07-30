@@ -7,5 +7,8 @@
                    name="insead.order.einvoicing"
                    template="Insead_CustomCheckout::order/einvoicing.phtml"/>
         </referenceContainer>
+        <referenceBlock name="order_totals">
+            <block class="Insead\CustomCheckout\Block\Sales\Order\Totals" name="insead_gst_totals"/>
+        </referenceBlock>
     </body>
 </page>

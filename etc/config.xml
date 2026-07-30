@@ -8,6 +8,17 @@
                 <enabled>1</enabled>
                 <!-- GST Declaration applies to programmes held in Singapore. -->
                 <programme_in_singapore>1</programme_in_singapore>
+                <!-- Shown by default for both profiles; hide per website / store
+                     view / profile (Self-funded vs Sponsored by Organisation) as needed. -->
+                <show_gender_field_b2c>1</show_gender_field_b2c>
+                <show_gender_field_b2b>1</show_gender_field_b2b>
+                <show_nationality_field_b2c>1</show_nationality_field_b2c>
+                <show_nationality_field_b2b>1</show_nationality_field_b2b>
+                <!-- Matches current behavior out of the box: required for
+                     Self-funded (B2C), optional for Sponsored by Organisation
+                     (B2B). Override per website / store view as needed. -->
+                <phone_required_b2c>1</phone_required_b2c>
+                <phone_required_b2b>0</phone_required_b2b>
             </insead_customcheckout>
             <insee_lookup>
                 <!-- Off by default until an API key is configured. -->
@@ -29,6 +40,41 @@
                 <non_eu_with_letter>26</non_eu_with_letter>
                 <non_eu_without_letter>29</non_eu_without_letter>
             </vat_group>
+            <!--
+                Singapore GST customer group mapping — see
+                Model\Gst\CustomerGroupResolver / Observer\Gst\SetQuoteCustomerGroup.
+                Off by default everywhere; enable per store/website ONLY for
+                the Singapore selling-entity store(s) (e.g. lhub_sgp). NOT
+                tied to programme_in_singapore, which means something
+                different (the course takes place in Singapore) and is
+                already true on stores that run the separate EU VAT
+                mechanism (icp_fra/lhub_fra/icp_usa) — see
+                Observer\Vat\SetQuoteCustomerGroup's docblock.
+                Defaults match the groups already created for this: B2B=32,
+                B2C=33, B2B_EXEMPT=34, B2C_GST=35.
+            -->
+            <gst_group>
+                <enabled>0</enabled>
+                <b2c>33</b2c>
+                <b2c_gst>35</b2c_gst>
+                <b2b>32</b2b>
+                <b2b_exempt>34</b2b_exempt>
+                <!--
+                    B2B + Singapore-entity GST (Model\Total\Quote\Gst): rate
+                    applied when the `gst_declaration` answer indicates a
+                    Singapore GST nexus, independent of billing/shipping
+                    country. Matches the existing "Singapore 9%" tax rate
+                    already configured in Stores > Taxes.
+                -->
+                <b2b_declaration_rate>9</b2b_declaration_rate>
+                <!--
+                    Which of the 4 GST Declaration statement values (see
+                    billing-form.js's gstStatements / Model\Gst\Source\DeclarationOptions)
+                    count as "GST applies" for Model\Total\Quote\Gst. Comma-separated.
+                    Default matches the judgment call documented in that class.
+                -->
+                <b2b_applicable_declarations>3,4</b2b_applicable_declarations>
+            </gst_group>
         </insead_checkout>
     </default>
 </config>

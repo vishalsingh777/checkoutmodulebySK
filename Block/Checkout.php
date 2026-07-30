@@ -71,6 +71,12 @@ class Checkout extends Template
             'countries'      => $this->getCountries(),
             'prefill'        => $this->getPrefill(),
             'programmeInSingapore' => $this->isProgrammeInSingapore(),
+            'showGenderFieldB2c'      => $this->isGenderFieldEnabled('b2c'),
+            'showGenderFieldB2b'      => $this->isGenderFieldEnabled('b2b'),
+            'showNationalityFieldB2c' => $this->isNationalityFieldEnabled('b2c'),
+            'showNationalityFieldB2b' => $this->isNationalityFieldEnabled('b2b'),
+            'phoneRequiredB2c'        => $this->isPhoneRequired('b2c'),
+            'phoneRequiredB2b'        => $this->isPhoneRequired('b2b'),
             'formKey'             => $this->formKey->getFormKey(),
             'urls'                => [
                 'lookup'      => $this->getUrl('insead_checkout/company/lookup'),
@@ -78,8 +84,26 @@ class Checkout extends Template
                 'upload'      => $this->getUrl('insead_checkout/billing/upload'),
                 'cart'        => $this->getUrl('checkout/cart'),
                 'validateVat' => $this->getUrl('insead_checkout/vat/validate'),
+                'restBase'    => $this->getRestBaseUrl(),
             ],
         ]);
+    }
+
+    /**
+     * REST API base URL scoped to the CURRENT store view (e.g.
+     * `/rest/lhub_fra/V1/`), not the store-code-less `/rest/V1/` default.
+     *
+     * This store is one of several active websites/stores on this
+     * installation (icp_fra, lhub_fra, lhub_sgp, lhub_usa, etc. — see
+     * VAT_CUSTOMER_GROUP_TAX.md §5). An un-scoped `/rest/V1/` call resolves
+     * against Magento's *default* store instead of the shopper's actual
+     * one, which desyncs the store/session context and was the root cause
+     * of "Invalid Form Key" errors surfacing after any country change (see
+     * billing-form.js's _loadRegions, the only caller of this URL).
+     */
+    private function getRestBaseUrl(): string
+    {
+        return '/rest/' . $this->storeManager->getStore()->getCode() . '/V1/';
     }
 
     /**
@@ -325,6 +349,33 @@ class Checkout extends Template
     {
         return $this->scopeConfig->isSetFlag(
             'insead_checkout/insead_customcheckout/programme_in_singapore',
+            ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /** Whether the Gender field is shown on the Billing Information step for the given profile. */
+    private function isGenderFieldEnabled(string $profile): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            'insead_checkout/insead_customcheckout/show_gender_field_' . $profile,
+            ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /** Whether the Nationality field is shown on the Billing Information step for the given profile. */
+    private function isNationalityFieldEnabled(string $profile): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            'insead_checkout/insead_customcheckout/show_nationality_field_' . $profile,
+            ScopeInterface::SCOPE_STORE
+        );
+    }
+
+    /** Whether Phone is mandatory on the Billing Information step for the given profile. */
+    private function isPhoneRequired(string $profile): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            'insead_checkout/insead_customcheckout/phone_required_' . $profile,
             ScopeInterface::SCOPE_STORE
         );
     }

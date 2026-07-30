@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Sales:etc/sales.xsd">
+    <section name="quote">
+        <group name="totals">
+            <!--
+                Sort order 500: after tax_subtotal/tax (450, Magento_Tax) so
+                this GST is computed off the same subtotal Tax would have
+                used, and before grand_total (550) so it's folded in. See
+                Model\Total\Quote\Gst for what this covers and why it isn't a
+                Tax Rule.
+            -->
+            <item name="insead_gst" instance="Insead\CustomCheckout\Model\Total\Quote\Gst" sort_order="500"/>
+        </group>
+    </section>
+</config>

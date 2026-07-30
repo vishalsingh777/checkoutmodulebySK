@@ -81,9 +81,23 @@ class Validate implements HttpPostActionInterface, CsrfAwareActionInterface
         }
     }
 
+    /**
+     * On a stale/invalid form key, respond with the same JSON shape execute()
+     * itself returns on failure (success/valid/message) — see
+     * Billing\Save::createCsrfValidationException for why this override is
+     * needed (avoids Magento's default HTML-redirect fallback, which the
+     * AJAX call's dataType: 'json' can't parse).
+     */
     public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
     {
-        return null;
+        $result = $this->resultJsonFactory->create();
+        $result->setData([
+            'success' => false,
+            'valid'   => null,
+            'message' => __('Your session has expired. Please refresh the page and try again.'),
+        ]);
+
+        return new InvalidRequestException($result);
     }
 
     public function validateForCsrf(RequestInterface $request): ?bool

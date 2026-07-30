@@ -20,6 +20,42 @@
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                     <comment>Controls the GST Declaration block: shown for non-Singapore, non-EU companies only when the programme is held in Singapore.</comment>
                 </field>
+                <field id="show_gender_field_b2c" translate="label comment" type="select" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Gender Field (Self-funded)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Gender field on the Billing Information step for Self-funded (B2C). Configurable per website / store view.</comment>
+                </field>
+                <field id="show_gender_field_b2b" translate="label comment" type="select" sortOrder="40"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Gender Field (Sponsored by Organisation)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Gender field on the Billing Information step for Sponsored by Organisation (B2B). Configurable per website / store view.</comment>
+                </field>
+                <field id="show_nationality_field_b2c" translate="label comment" type="select" sortOrder="50"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Nationality Field (Self-funded)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Nationality field on the Billing Information step for Self-funded (B2C). Configurable per website / store view.</comment>
+                </field>
+                <field id="show_nationality_field_b2b" translate="label comment" type="select" sortOrder="60"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Nationality Field (Sponsored by Organisation)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Nationality field on the Billing Information step for Sponsored by Organisation (B2B). Configurable per website / store view.</comment>
+                </field>
+                <field id="phone_required_b2c" translate="label comment" type="select" sortOrder="70"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Phone Required (Self-funded)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Whether the Phone field is mandatory on the Billing Information step for Self-funded (B2C). Set to No to make it optional. Configurable per website / store view.</comment>
+                </field>
+                <field id="phone_required_b2b" translate="label comment" type="select" sortOrder="80"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Phone Required (Sponsored by Organisation)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Whether the Phone field is mandatory on the Billing Information step for Sponsored by Organisation (B2B). Set to No to make it optional. Configurable per website / store view.</comment>
+                </field>
             </group>
             <group id="vat_group" translate="label" type="text" sortOrder="1005"
                    showInDefault="1" showInWebsite="1" showInStore="1">
@@ -27,33 +63,66 @@
                 <comment>Which customer group to switch the quote to during tax calculation, based on billing country (EU/non-EU), VAT Intracommunity validity, and whether a supporting document (Certificate ID / Tax Exempt File) is present. See Observer\Vat\SetQuoteCustomerGroup.</comment>
                 <field id="eu_with_vat_and_letter" translate="label" type="select" sortOrder="10"
                        showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>EU, Valid VAT, With Letter</label>
+                    <label>B2B</label>
                     <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
                 </field>
                 <field id="eu_with_vat_without_letter" translate="label" type="select" sortOrder="20"
                        showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>EU, Valid VAT, Without Letter</label>
+                    <label>B2C</label>
                     <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
                 </field>
                 <field id="eu_without_vat_and_letter" translate="label" type="select" sortOrder="30"
                        showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>EU, No/Invalid VAT, With Letter</label>
+                    <label>B2B EXEMPT</label>
                     <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
                 </field>
                 <field id="eu_without_vat_without_letter" translate="label" type="select" sortOrder="40"
                        showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>EU, No/Invalid VAT, Without Letter</label>
+                    <label>B2C GST</label>
                     <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
                 </field>
-                <field id="non_eu_with_letter" translate="label" type="select" sortOrder="50"
+            </group>
+            <group id="gst_group" translate="label" type="text" sortOrder="1006"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Singapore GST Customer Group Mapping</label>
+                <comment>Which customer group to switch the quote to during tax calculation, based on the B2C/B2B financing profile, the Self-funded Singapore residency declaration, and the Sponsored by Organisation Tax Status. See Observer\Gst\SetQuoteCustomerGroup.</comment>
+                <field id="enabled" translate="label comment" type="select" sortOrder="5"
                        showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Non-EU, With Letter</label>
+                    <label>Enable Singapore GST Customer Group Mapping</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Set to Yes ONLY at the scope of the Singapore selling-entity store(s) (e.g. lhub_sgp). Mutually exclusive with the VAT / Tax Customer Group Mapping above — a store should use one mechanism or the other, never both. Not the same as "Programme Held in Singapore" above (that controls the GST Declaration form field, not this backend group swap, and is already Yes on stores that use the VAT mechanism).</comment>
+                </field>
+                <field id="b2c" translate="label" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>B2C (default)</label>
                     <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
                 </field>
-                <field id="non_eu_without_letter" translate="label" type="select" sortOrder="60"
+                <field id="b2c_gst" translate="label" type="select" sortOrder="20"
                        showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Non-EU, Without Letter</label>
+                    <label>B2C, Declares Will Be in Singapore During the Course</label>
                     <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="b2b" translate="label" type="select" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>B2B, Tax Registered / Non Tax Registered (default)</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="b2b_exempt" translate="label" type="select" sortOrder="40"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>B2B, Tax Exempt</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                </field>
+                <field id="b2b_declaration_rate" translate="label comment" type="text" sortOrder="50"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>B2B, Singapore Entity Declaration — GST Rate (%)</label>
+                    <comment>Applied on top of the order subtotal when a B2B customer's `gst_declaration` answer indicates a Singapore GST nexus — independent of billing/shipping country (per spec, these customers stay in the B2B group either way). See Model\Total\Quote\Gst. Defaults to 9, matching the existing "Singapore 9%" tax rate.</comment>
+                    <validate>validate-number validate-zero-or-greater</validate>
+                </field>
+                <field id="b2b_applicable_declarations" translate="label comment" type="multiselect" sortOrder="60"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>B2B, Singapore Entity Declaration — Which Statements Count as GST Applicable</label>
+                    <source_model>Insead\CustomCheckout\Model\Gst\Source\DeclarationOptions</source_model>
+                    <comment>Select which of the 4 GST Declaration statements (shown on the Billing Information step for B2B customers) should trigger the GST amount above. Defaults to statements 3 and 4 — this was a judgment call, not derived from the spec table (which only shows a Yes/No, not these 4 nuanced options); adjust if it doesn't match actual policy. See Model\Total\Quote\Gst.</comment>
                 </field>
             </group>
             <group id="insee_lookup" translate="label" type="text" sortOrder="1010"
