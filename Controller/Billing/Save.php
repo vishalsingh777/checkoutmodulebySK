@@ -36,7 +36,7 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         'certificate_id', 'duns_number', 'routing_address', 'tax_exempt_file',
         'invoice_recipient_firstname', 'invoice_recipient_lastname', 'invoice_email',
         'reg_type_label', 'reg_type_value', 'gender', 'nationality', 'po_number',
-        'job_industry', 'credit_consumption_code', 'gst_declaration', 'residency_declaration',
+        'job_industry', 'gst_declaration', 'residency_declaration',
         'peoplesoft_id',
     ];
 
