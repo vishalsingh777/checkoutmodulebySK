@@ -8,20 +8,26 @@ use Magento\Quote\Model\Quote;
 use Magento\Store\Model\ScopeInterface;
 
 /**
- * Resolves which of the 4 Singapore GST customer groups (B2C / B2C_GST / B2B
- * / B2B_EXEMPT) a quote falls into, per the Customer Group Mapping spec for
- * programmes sold by the Singapore legal entity. Mirrors
- * Model\Vat\CustomerGroupResolver's shape (pure decision logic, config-driven
- * group IDs) — see Observer\Gst\SetQuoteCustomerGroup for where this applies.
+ * Resolves which of the 6 Singapore GST customer groups a quote falls into:
+ * B2C, B2C_SG_GST_LIABLE, B2B_REGISTERED, B2B_NON_REGISTERED,
+ * B2B_TAX_EXEMPT, B2B_SG_GST_LIABLE. Replaces the earlier 4-group design
+ * (B2C/B2C_GST/B2B/B2B_EXEMPT) — see Observer\Gst\SetQuoteCustomerGroup for
+ * where this applies.
  *
- * Only B2C's Singapore-residency declaration and B2B's Tax Exempt status
- * change the group. A B2B customer who declares having (or not having) a
- * Singapore entity (`gst_declaration`) stays in the B2B group either way per
- * spec — that declaration is kept as a compliance record only; GST for that
- * case is expected to come from a Tax Rule matching the B2B group's Tax
- * Class against the billing/shipping country, not from this resolver (a
- * single customer group cannot produce two different tax outcomes on its
- * own — see Observer\Gst\SetQuoteCustomerGroup's docblock).
+ * Each group maps 1:1 to its own Magento Tax Class, so native Tax Rules do
+ * the actual GST calculation — there is deliberately NO separate manual GST
+ * total anymore (the old Model\Total\Quote\Gst flat-rate total for B2B is
+ * retired; it would double-charge GST now that a Tax Rule handles it).
+ *
+ * B2B used to stay in a single group regardless of the Singapore GST
+ * declaration. Now it starts as one of THREE base groups driven by Tax
+ * Status alone (Registered / Non-Registered / Tax Exempt, each its own Tax
+ * Class for reverse-charge/zero-rate purposes) — but ALL THREE collapse into
+ * the SAME B2B_SG_GST_LIABLE group the moment the GST Declaration is
+ * answered with statement 4 ("None of the above apply"), since at that
+ * point they all owe the identical 9% GST regardless of which of the three
+ * they started from. Statements 1-3 (or the declaration not being shown at
+ * all) leave Tax Status as the only thing that matters.
  */
 class CustomerGroupResolver
 {
@@ -52,23 +58,48 @@ class CustomerGroupResolver
     /**
      * 'disagree' = shopper does NOT certify they'll be outside Singapore
      * during the course — i.e. they WILL be in Singapore, so GST applies.
-     * Blank (declaration not shown/not answered, e.g. SG/FR/AE/US billing
-     * country per billing-form.js's residencyExcluded) keeps the default B2C
-     * group, matching the spec's "Standard B2C customer" row.
+     * Blank (declaration not shown/not answered — billing = SG, GST config
+     * off, or not a Singapore-entity store) keeps the default B2C group.
      */
     private function resolveB2cPath(Quote $quote): string
     {
         $declaration = (string) $quote->getData('residency_declaration');
-        return $declaration === 'disagree' ? 'b2c_gst' : 'b2c';
+        return $declaration === 'disagree' ? 'b2c_sg_gst_liable' : 'b2c';
     }
 
     /**
-     * 'reg' and 'notreg' both stay on the default B2B group — only 'exempt'
-     * moves to the dedicated no-GST group.
+     * Statement 4 ("None of the above apply") always wins, regardless of Tax
+     * Status — a Tax-Exempt B2B customer who selects statement 4 still owes
+     * GST, per the table's explicit note that this group "no longer skips
+     * the SG question." Which statement(s) count as liable is admin
+     * configurable (`b2b_applicable_declarations`, defaulting to statement 4
+     * only) rather than hardcoded, matching how DeclarationOptions already
+     * exposes all 4 statements to admin.
      */
     private function resolveB2bPath(Quote $quote): string
     {
+        $declaration = (string) $quote->getData('gst_declaration');
+        if ($declaration !== '' && $this->isGstLiableDeclaration($declaration, $quote)) {
+            return 'b2b_sg_gst_liable';
+        }
+
         $taxStatus = (string) $quote->getData('tax_registration_status');
-        return $taxStatus === 'exempt' ? 'b2b_exempt' : 'b2b';
+        return match ($taxStatus) {
+            'exempt' => 'b2b_tax_exempt',
+            'notreg' => 'b2b_non_registered',
+            default => 'b2b_registered',
+        };
+    }
+
+    private function isGstLiableDeclaration(string $declaration, Quote $quote): bool
+    {
+        $configured = (string) $this->scopeConfig->getValue(
+            'insead_checkout/gst_group/b2b_applicable_declarations',
+            ScopeInterface::SCOPE_STORE,
+            $quote->getStoreId()
+        );
+        $liableValues = array_filter(array_map('trim', explode(',', $configured)));
+
+        return in_array($declaration, $liableValues, true);
     }
 }

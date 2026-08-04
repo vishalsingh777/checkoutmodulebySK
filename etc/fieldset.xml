@@ -82,9 +82,6 @@
             <field name="job_industry">
                 <aspect name="to_order"/>
             </field>
-            <field name="credit_consumption_code">
-                <aspect name="to_order"/>
-            </field>
             <field name="gst_declaration">
                 <aspect name="to_order"/>
             </field>

@@ -6,19 +6,14 @@
             <insead_customcheckout>
                 <!-- On by default; enable per website / store view as needed. -->
                 <enabled>1</enabled>
-                <!-- GST Declaration applies to programmes held in Singapore. -->
-                <programme_in_singapore>1</programme_in_singapore>
-                <!-- Shown by default for both profiles; hide per website / store
-                     view / profile (Self-funded vs Sponsored by Organisation) as needed. -->
-                <show_gender_field_b2c>1</show_gender_field_b2c>
-                <show_gender_field_b2b>1</show_gender_field_b2b>
-                <show_nationality_field_b2c>1</show_nationality_field_b2c>
-                <show_nationality_field_b2b>1</show_nationality_field_b2b>
+                <!-- Shown by default for both profiles; remove a profile per
+                     website / store view as needed. -->
+                <show_gender_field>b2c,b2b</show_gender_field>
+                <show_nationality_field>b2c,b2b</show_nationality_field>
                 <!-- Matches current behavior out of the box: required for
-                     Self-funded (B2C), optional for Sponsored by Organisation
-                     (B2B). Override per website / store view as needed. -->
-                <phone_required_b2c>1</phone_required_b2c>
-                <phone_required_b2b>0</phone_required_b2b>
+                     Self-funded (B2C) only. Add b2b per website / store view
+                     to also require it for Sponsored by Organisation. -->
+                <phone_required>b2c</phone_required>
             </insead_customcheckout>
             <insee_lookup>
                 <!-- Off by default until an API key is configured. -->
@@ -26,54 +21,79 @@
                 <api_base_url>https://api.insee.fr/api-sirene/3.11</api_base_url>
             </insee_lookup>
             <!--
-                Defaults match the same 6 customer groups Ewave_CustomerVat
-                already uses in production (icp_fra / iapl_edp_fr) — see
-                Model\Vat\CustomerGroupResolver — so behavior is unchanged
-                out of the box; override per website/store if a group ID
-                differs elsewhere.
+                Which customer group to assign for non-Singapore stores
+                (icp_fra/lhub_fra/icp_usa etc.) — see
+                Model\Vat\CustomerGroupResolver. By explicit decision, this
+                now uses the SAME shape as Singapore GST: only
+                `financing_profile` (B2C/B2B) and `tax_registration_status`
+                (Registered/Non-Registered/Exempt), both self-declared on the
+                frontend — NOT EU-vs-non-EU country, VIES VAT-number
+                validity, or a supporting "letter" document, which the
+                previous 6-group design used. See CustomerGroupResolver's
+                docblock for the compliance note this tradeoff carries.
+                No numeric ID defaults below — same reasoning as gst_group:
+                a made-up placeholder ID that doesn't match a real group on
+                a given instance previously caused a production crash. Each
+                of the 4 MUST be explicitly selected from the dropdown in
+                Admin > Stores > Configuration, per store.
             -->
             <vat_group>
-                <eu_with_vat_and_letter>14</eu_with_vat_and_letter>
-                <eu_with_vat_without_letter>17</eu_with_vat_without_letter>
-                <eu_without_vat_and_letter>20</eu_without_vat_and_letter>
-                <eu_without_vat_without_letter>23</eu_without_vat_without_letter>
-                <non_eu_with_letter>26</non_eu_with_letter>
-                <non_eu_without_letter>29</non_eu_without_letter>
+                <!-- <b2c>REPLACE_ME</b2c> -->
+                <!-- <b2b_registered>REPLACE_ME</b2b_registered> -->
+                <!-- <b2b_non_registered>REPLACE_ME</b2b_non_registered> -->
+                <!-- <b2b_tax_exempt>REPLACE_ME</b2b_tax_exempt> -->
             </vat_group>
             <!--
-                Singapore GST customer group mapping — see
-                Model\Gst\CustomerGroupResolver / Observer\Gst\SetQuoteCustomerGroup.
-                Off by default everywhere; enable per store/website ONLY for
-                the Singapore selling-entity store(s) (e.g. lhub_sgp). NOT
-                tied to programme_in_singapore, which means something
-                different (the course takes place in Singapore) and is
-                already true on stores that run the separate EU VAT
-                mechanism (icp_fra/lhub_fra/icp_usa) — see
-                Observer\Vat\SetQuoteCustomerGroup's docblock.
-                Defaults match the groups already created for this: B2B=32,
-                B2C=33, B2B_EXEMPT=34, B2C_GST=35.
+                Singapore GST — see Model\Gst\CustomerGroupResolver /
+                Observer\Gst\SetQuoteCustomerGroup / Block\Checkout. `enabled`
+                is the SINGLE admin flag that governs GST end to end: whether
+                the GST Declaration / residency declaration fields render on
+                the frontend at all, AND whether the backend group assignment
+                runs (GST itself is then calculated by native Tax Rules keyed
+                to each group's Tax Class — no custom total). Off by default
+                everywhere; enable per store/website ONLY for the Singapore
+                selling-entity store(s) (e.g. lhub_sgp).
+                The 6 groups (B2C, B2C_SG_GST_LIABLE, B2B_REGISTERED,
+                B2B_NON_REGISTERED, B2B_TAX_EXEMPT, B2B_SG_GST_LIABLE) have NO
+                numeric ID defaults below — each must be explicitly created
+                and selected in admin; see the comment inside <gst_group> for
+                why.
             -->
             <gst_group>
                 <enabled>0</enabled>
-                <b2c>33</b2c>
-                <b2c_gst>35</b2c_gst>
-                <b2b>32</b2b>
-                <b2b_exempt>34</b2b_exempt>
                 <!--
-                    B2B + Singapore-entity GST (Model\Total\Quote\Gst): rate
-                    applied when the `gst_declaration` answer indicates a
-                    Singapore GST nexus, independent of billing/shipping
-                    country. Matches the existing "Singapore 9%" tax rate
-                    already configured in Stores > Taxes.
+                    All 6 group IDs are deliberately left UNSET here — no
+                    numeric defaults. A made-up placeholder ID that doesn't
+                    match a real group on a given instance is exactly what
+                    caused a production crash before (Magento's tax
+                    collector throwing "No such entity with id = N" while
+                    resolving a nonexistent customer group's tax class).
+                    CustomerGroupResolver::resolve() returns null when a path
+                    isn't configured, and SetQuoteCustomerGroup safely no-ops
+                    on null — so an unconfigured store just does nothing,
+                    rather than crashing or misassigning. Each of the 6 MUST
+                    be explicitly selected from the dropdown in Admin >
+                    Stores > Configuration, at the scope of the Singapore
+                    selling-entity store(s) (e.g. lhub_sgp), after the
+                    matching groups + Tax Classes + Tax Rules are created —
+                    see Model\Gst\CustomerGroupResolver's docblock for the
+                    6-group table this maps to.
                 -->
-                <b2b_declaration_rate>9</b2b_declaration_rate>
+                <!-- <b2c>REPLACE_ME</b2c> -->
+                <!-- <b2c_sg_gst_liable>REPLACE_ME</b2c_sg_gst_liable> -->
+                <!-- <b2b_registered>REPLACE_ME</b2b_registered> -->
+                <!-- <b2b_non_registered>REPLACE_ME</b2b_non_registered> -->
+                <!-- <b2b_tax_exempt>REPLACE_ME</b2b_tax_exempt> -->
+                <!-- <b2b_sg_gst_liable>REPLACE_ME</b2b_sg_gst_liable> -->
                 <!--
-                    Which of the 4 GST Declaration statement values (see
+                    Which GST Declaration statement value(s) (see
                     billing-form.js's gstStatements / Model\Gst\Source\DeclarationOptions)
-                    count as "GST applies" for Model\Total\Quote\Gst. Comma-separated.
-                    Default matches the judgment call documented in that class.
+                    move a B2B customer into B2B_SG_GST_LIABLE. Comma-separated.
+                    Only statement 4 ("None of the above apply") — its own
+                    form text states selecting it results in a Singapore-GST
+                    invoice; statements 1-3 do not.
                 -->
-                <b2b_applicable_declarations>3,4</b2b_applicable_declarations>
+                <b2b_applicable_declarations>4</b2b_applicable_declarations>
             </gst_group>
         </insead_checkout>
     </default>

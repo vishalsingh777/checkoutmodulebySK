@@ -9,8 +9,6 @@
     <event name="checkout_submit_all_after">
         <observer name="insead_export_mg_organization"
                   instance="Insead\CustomCheckout\Observer\ExportOrganizationOnOrderPlaced"/>
-        <observer name="insead_copy_gst_amount_to_order"
-                  instance="Insead\CustomCheckout\Observer\Gst\CopyGstAmountToOrder"/>
         <observer name="insead_set_vat_order_customer_group"
                   instance="Insead\CustomCheckout\Observer\Vat\SetOrderCustomerGroup"/>
         <observer name="insead_set_gst_order_customer_group"
@@ -21,8 +19,8 @@
         group assignment for tax calculation — see Observer\Vat and
         Observer\Gst SetQuoteCustomerGroup classes for the coexistence
         rationale (only one of the two acts on a given quote, gated by the
-        store's `programme_in_singapore` config flag; both only ever act on
-        quotes that went through this module's own checkout).
+        store's `insead_checkout/gst_group/enabled` flag; both only ever act
+        on quotes that went through this module's own checkout).
     -->
     <event name="sales_quote_address_collect_totals_before">
         <observer name="insead_set_vat_customer_group"

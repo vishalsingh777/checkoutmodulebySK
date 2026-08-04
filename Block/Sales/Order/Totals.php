@@ -7,16 +7,22 @@ use Magento\Framework\DataObject;
 use Magento\Framework\View\Element\Template;
 
 /**
- * Adds the "Singapore GST" row to the order Totals block (frontend "My
+ * Adds a "Singapore GST" row to the order Totals block (frontend "My
  * Orders" and admin order view both use Magento\Sales\Block\Order\Totals /
  * Magento\Sales\Block\Adminhtml\Order\Totals under the same "order_totals"
  * block name — see view/frontend and view/adminhtml layout/sales_order_view.xml).
  * Mirrors Magento\Weee\Block\Sales\Order\Totals — the same mechanism core
  * uses to add its own extra total row to this same block.
  *
- * Reads insead_gst_amount off the order (copied from the quote by
- * Observer\Gst\CopyGstAmountToOrder — see Model\Total\Quote\Gst for what
- * this amount is and why it isn't a Tax Rule).
+ * DORMANT as of the move to native Tax Rules for GST (see
+ * Model\Gst\CustomerGroupResolver): `insead_gst_amount` is no longer written
+ * by anything (the total that used to populate it, Model\Total\Quote\Gst,
+ * was retired), so initTotals() below will always see 0 and add nothing.
+ * GST charged via a Tax Rule shows up folded into the standard "Tax" row
+ * instead of this separate line — that is an intentional, visible change
+ * from the old behavior, flagged for confirmation rather than silently
+ * removing this block. Safe to delete this class + its layout XML wiring
+ * once that's confirmed acceptable.
  */
 class Totals extends Template
 {

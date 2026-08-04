@@ -42,7 +42,7 @@
                 <!-- ko if: showTaxStatus -->
                 <div class="field">
                     <label>Tax Status
-                        <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Indicates whether your organisation is registered for tax purposes, not registered, or exempt in the billing country selected.</span></span>
+                        <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Affects the tax charged on your order. Tax Registered: your organisation's registration may qualify for reverse-charge or reduced tax treatment. Non-Tax Registered: standard tax is applied, as for an individual customer. Tax Exempt: no tax is applied, subject to providing supporting documentation.</span></span>
                     </label>
                     <select data-bind="options: taxStatusList, optionsValue: 'value', optionsText: 'label', value: taxStatus"></select>
                 </div>
@@ -187,11 +187,15 @@
                 <h3 class="insead-subhead">Organisation Details</h3>
                 <div class="field-row two-col">
                     <div class="field" data-bind="css: {'_error': hasError('invoiceFirstName')}">
-                        <label>Invoice Recipient First Name <span class="req">*</span></label>
+                        <label>Invoice Recipient First Name <span class="req">*</span>
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The invoice will be issued to this person's name.</span></span>
+                        </label>
                         <input type="text" data-bind="value: invoiceFirstName, valueUpdate: 'input'"/>
                     </div>
                     <div class="field" data-bind="css: {'_error': hasError('invoiceLastName')}">
-                        <label>Invoice Recipient Last Name <span class="req">*</span></label>
+                        <label>Invoice Recipient Last Name <span class="req">*</span>
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The invoice will be issued to this person's name.</span></span>
+                        </label>
                         <input type="text" data-bind="value: invoiceLastName, valueUpdate: 'input'"/>
                     </div>
                 </div>
@@ -206,7 +210,7 @@
                 <div class="field-row two-col">
                     <div class="field" data-bind="css: {'_error': hasError('siret')}">
                         <label>SIRET <span class="req">*</span>
-                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">A unique 14-digit number identifying your company's establishment, issued by INSEE (France).</span></span>
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Identification of each establishment of the same company in which the activity is carried out with geographical indication of activity/building — SIREN digits 9 + 5 institution-specific digits (14 digits).</span></span>
                         </label>
                         <input type="text" maxlength="14" data-bind="value: siret, valueUpdate: 'input'"/>
                         <p class="insead-field-status" data-bind="visible: siretStatus() !== 'idle', text: siretMessage(),
@@ -224,7 +228,7 @@
                 <div class="field-row two-col">
                     <div class="field" data-bind="css: {'_error': hasError('companyLegalName')}">
                         <label>Company Full Legal Name <span class="req">*</span>
-                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The full registered legal name of your company as it appears on official registration documents.</span></span>
+                            <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Name used by a business to enter into contracts and make other legal or administrative commitments. We will need the complete and exact name for invoicing.</span></span>
                         </label>
                         <input type="text" data-bind="value: companyLegalName, valueUpdate: 'input', enable: !isCompanyNameAuto()"/>
                     </div>
@@ -313,7 +317,7 @@
                     </div>
                 </div>
 
-                <!-- GST Declaration (B2B, programme in Singapore, company is Rest-of-World) -->
+                <!-- GST Declaration (B2B, programme in Singapore, billing address anything OTHER than Singapore itself) -->
                 <!-- ko if: showGstDeclaration() -->
                 <div class="insead-declaration" data-bind="css: {'_error': hasError('gstDeclaration')}">
                     <h3 class="insead-subhead">GST Declaration</h3>

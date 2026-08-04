@@ -12,8 +12,9 @@ use Magento\Store\Model\ScopeInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Sets the PLACED ORDER's own `customer_group_id` to whichever of the 4
- * Singapore GST groups (B2C/B2C_GST/B2B/B2B_EXEMPT) actually governed its
+ * Sets the PLACED ORDER's own `customer_group_id` to whichever of the 6
+ * Singapore GST groups (B2C/B2C_SG_GST_LIABLE/B2B_REGISTERED/
+ * B2B_NON_REGISTERED/B2B_TAX_EXEMPT/B2B_SG_GST_LIABLE) actually governed its
  * tax calculation — permanently, on the order row only. Mirrors
  * Observer\Vat\SetOrderCustomerGroup exactly, for the GST mechanism instead
  * of the VAT one; see that class's docblock for the full rationale (does not

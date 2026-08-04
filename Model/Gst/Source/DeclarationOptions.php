@@ -8,9 +8,10 @@ use Magento\Framework\Option\ArrayInterface;
 /**
  * The 4 GST Declaration statement options a B2B customer can select on the
  * Billing Information step (see billing-form.js's `gstStatements` — values
- * and text must stay in sync with that file). Backs the "Which declarations
- * count as GST Yes" admin field, so the mapping Model\Total\Quote\Gst uses
- * is admin-configurable instead of a hardcoded array.
+ * and text must stay in sync with that file). Backs the "Which Statements
+ * Move the Customer to Singapore GST Liable" admin field, so the mapping
+ * Model\Gst\CustomerGroupResolver uses is admin-configurable instead of a
+ * hardcoded array.
  */
 class DeclarationOptions implements ArrayInterface
 {

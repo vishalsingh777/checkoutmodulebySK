@@ -18,6 +18,13 @@ use Psr\Log\LoggerInterface;
  * only core Magento (Magento\Customer\Model\Vat — module-customer). No
  * dependency on any third-party module or store-level toggle: this always
  * runs when called, for any EU country code Vat::checkVatNumber() accepts.
+ *
+ * INFORMATIONAL ONLY as of the move to Model\Vat\CustomerGroupResolver's
+ * simplified (financing_profile + tax_registration_status only) group
+ * decision — this result is shown to the customer as a live green-check on
+ * the billing form and is a useful record of what was checked, but no
+ * longer feeds which customer group/Tax Rule an order gets. See that
+ * resolver's docblock for the compliance note this carries.
  */
 class Validate implements HttpPostActionInterface, CsrfAwareActionInterface
 {

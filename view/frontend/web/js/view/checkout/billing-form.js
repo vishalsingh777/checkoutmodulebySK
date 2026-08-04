@@ -18,7 +18,8 @@ define([
     'ko',
     'jquery',
     'mage/translate',
-    'Magento_Ui/js/modal/alert'
+    'Magento_Ui/js/modal/alert',
+    'mage/cookies'
 ], function (Component, ko, $, $t, alert) {
     'use strict';
 
@@ -91,9 +92,6 @@ define([
         {value: 'prefer_not', label: $t('Prefer not to answer')}
     ];
 
-    // Countries excluded from the Self-funded residency declaration.
-    var residencyExcluded = ['SG', 'FR', 'AE', 'US'];
-
     // Region cache keyed by ISO country code (avoids repeat directory calls).
     var regionCache = {};
 
@@ -102,7 +100,7 @@ define([
     var DUNS     = {code: 'duns_number',    label: 'D-U-N-S Number (optional)',       type: 'opt',
         tooltip: 'A unique nine-digit identifier issued by Dun & Bradstreet used to identify your business globally.'};
     var PO       = {code: 'po_number',      label: 'PO Number',                       type: 'opt',
-        tooltip: "Your organisation's Purchase Order number, if applicable, used for internal invoice matching."};
+        tooltip: 'Please check with your procurement/accounting if needed for invoicing.'};
     var ROUTING  = {code: 'routing_address',label: 'Routing Address',                 type: 'opt',
         tooltip: 'The address invoices should be routed to within your organisation, if different from the postal address above.'};
     var TAXREG   = {code: 'tax_id_number',  label: 'Tax Registration Number',         type: 'opt',
@@ -130,7 +128,7 @@ define([
     var UEN_SG   = {code: 'uen', label: 'Business Registration Number (UEN)',         type: 'req',
         tooltip: "Your company's Unique Entity Number issued by the Singapore government."};
     var UEN_GEN  = {code: 'uen', label: 'Business Registration Number',               type: 'req',
-        tooltip: 'The official registration number that identifies your business (e.g. company registration number).'};
+        tooltip: 'Official business registration or tax identification number issued by the relevant government authority in the selected country.'};
     var GST_NUM  = {code: 'gst_number', label: 'GST Number',                          type: 'req',
         tooltip: "Your company's Goods & Services Tax registration number."};
 
@@ -232,7 +230,7 @@ define([
             customer: {},
             countries: [],
             prefill: {},
-            programmeInSingapore: true,
+            gstEnabled: false,
             showGenderFieldB2c: true,
             showGenderFieldB2b: true,
             showNationalityFieldB2c: true,
@@ -275,7 +273,7 @@ define([
             this.endpointUrls = this.urls || {};
             this.formKeyValue = this.formKey || '';
             this.countriesList = ko.observableArray(this.countries || []);
-            this.programmeIsSingapore = !!this.programmeInSingapore;
+            this.gstEnabled = !!this.gstEnabled;
             this.showGenderFieldB2c = !!this.showGenderFieldB2c;
             this.showGenderFieldB2b = !!this.showGenderFieldB2b;
             this.showNationalityFieldB2c = !!this.showNationalityFieldB2c;
@@ -393,18 +391,19 @@ define([
                 return self.isB2B();
             });
             this.hasRegions = ko.computed(function () { return self.regionsList().length > 0; });
-            // GST Declaration: B2B, programme in Singapore, for every country group
-            // EXCEPT Singapore, France, UAE and US (i.e. shown for EU and ROW).
+            // GST Declaration: B2B, programme in Singapore, billing address
+            // anything OTHER than Singapore itself (a Singapore-billing B2B
+            // customer never needs the declaration — they're already inside
+            // the GST net).
             this.showGstDeclaration = ko.computed(function () {
-                var excludedGroups = ['SG', 'FR', 'UAE', 'US'];
-                return self.isB2B() && self.programmeIsSingapore
-                    && excludedGroups.indexOf(self.countryGroup()) === -1;
+                return self.isB2B() && self.gstEnabled
+                    && self.countryGroup() !== 'SG';
             });
-            // Self-funded residency Declaration: Singapore legal entity AND B2C AND
-            // billing country NOT in SG/FR/UAE/US.
+            // Self-funded residency Declaration: Singapore legal entity AND
+            // B2C AND billing country anything OTHER than Singapore itself.
             this.showResidencyDeclaration = ko.computed(function () {
-                return self.isB2C() && self.programmeIsSingapore
-                    && residencyExcluded.indexOf(self.country()) === -1;
+                return self.isB2C() && self.gstEnabled
+                    && self.country() !== 'SG';
             });
             // Blocks "Continue to Payment" while the VAT Intracommunity Number
             // field is on screen (FR/EU, Tax Registered) and either mid-check or
@@ -548,7 +547,7 @@ define([
             }
             return $.when.apply($, pending.map(function (code) {
                 var fd = new FormData();
-                fd.append('form_key', self.formKeyValue);
+                fd.append('form_key', self._currentFormKey());
                 fd.append('tax_exempt_file', files[code]);
                 return $.ajax({
                     url: self.endpointUrls.upload, method: 'POST', data: fd,
@@ -656,7 +655,7 @@ define([
                 var requestedCountry = self.country();
                 $.ajax({
                     url: self.endpointUrls.validateVat, method: 'POST', dataType: 'json',
-                    data: {form_key: self.formKeyValue, country_id: requestedCountry, vat_number: requestedValue}
+                    data: {form_key: self._currentFormKey(), country_id: requestedCountry, vat_number: requestedValue}
                 }).done(function (res) {
                     // Stale response (value/country changed while the request was
                     // in flight) — a fresher request already superseded this one.
@@ -834,9 +833,24 @@ define([
 
         // ---- Persistence ----------------------------------------------------
 
+        /**
+         * The form_key baked into the page at load time (this.formKeyValue)
+         * can be stale by the time the shopper submits — most commonly on a
+         * brand-new tab/session where the cookie finishes settling slightly
+         * after the page's own HTML was generated. Magento keeps a `form_key`
+         * cookie in sync with the CURRENT session on every request, so read
+         * that fresh at submit time instead; it self-corrects without the
+         * shopper needing to manually refresh. Falls back to the page-load
+         * value only if the cookie genuinely isn't there yet.
+         */
+        _currentFormKey: function () {
+            var cookieValue = $.mage && $.mage.cookies ? $.mage.cookies.get('form_key') : null;
+            return cookieValue || this.formKeyValue;
+        },
+
         _collectPayload: function () {
             var data = {
-                form_key: this.formKeyValue,
+                form_key: this._currentFormKey(),
                 financing_profile: this.financingProfile(),
                 country_id: this.country() || 'FR',
                 peoplesoft_id: this._peoplesoftId || ''
@@ -914,6 +928,37 @@ define([
             return data;
         },
 
+        /** Matches the exact message Controller\Billing\Save::createCsrfValidationException returns. */
+        _isSessionExpiredResponse: function (res) {
+            return !!(res && res.success === false && typeof res.message === 'string'
+                && res.message.indexOf('session has expired') !== -1);
+        },
+
+        /**
+         * POST the billing payload, with ONE silent automatic retry if the
+         * server reports the CSRF "session has expired" failure. That
+         * response is itself what causes Magento to (re)set a correct
+         * form_key cookie for this session — so re-reading it via
+         * _currentFormKey() and resubmitting once resolves the same class of
+         * first-visit issue a manual page refresh does, without the shopper
+         * having to do it themselves. allowRetry defaults to true; passed
+         * false on the retry attempt itself so this can never loop.
+         */
+        _postBilling: function (allowRetry) {
+            var self = this;
+            var dfd = $.Deferred();
+            $.ajax({
+                url: self.endpointUrls.save, method: 'POST', dataType: 'json', data: self._collectPayload()
+            }).done(function (res) {
+                if (allowRetry !== false && self._isSessionExpiredResponse(res)) {
+                    self._postBilling(false).done(dfd.resolve).fail(dfd.reject);
+                } else {
+                    dfd.resolve(res);
+                }
+            }).fail(dfd.reject);
+            return dfd.promise();
+        },
+
         /**
          * "Continue to Payment": validate, save, then redirect the browser to
          * the URL the server returns (genuine native Magento checkout — see
@@ -930,9 +975,7 @@ define([
             }
             this.isLoading(true);
             this._uploadPendingFiles().then(function () {
-                return $.ajax({
-                    url: self.endpointUrls.save, method: 'POST', dataType: 'json', data: self._collectPayload()
-                });
+                return self._postBilling();
             }).done(function (res) {
                 if (res && res.success && res.redirect) {
                     window.location.href = res.redirect;
@@ -952,9 +995,7 @@ define([
             var self = this;
             this.globalError('');
             this._uploadPendingFiles().then(function () {
-                return $.ajax({
-                    url: self.endpointUrls.save, method: 'POST', dataType: 'json', data: self._collectPayload()
-                });
+                return self._postBilling();
             }).done(function (res) {
                 if (!res || !res.success) {
                     self.globalError((res && res.message) || $t('Unable to save billing data.'));

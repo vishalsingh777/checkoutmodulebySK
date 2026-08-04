@@ -12,24 +12,21 @@ use Magento\Store\Model\ScopeInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Sets the PLACED ORDER's own `customer_group_id` to whichever of the 6 EU/
- * non-EU VAT groups actually governed its tax calculation — permanently, on
- * the order row only. Does NOT touch the customer's account group
- * (customer_entity) and does NOT change anything about
- * Observer\Vat\SetQuoteCustomerGroup / RestoreQuoteCustomerGroup, which keep
- * swapping the QUOTE's group temporarily during active checkout (still
- * needed so mid-session totals collections, e.g. an intermediate page
- * reload, aren't affected). This only runs once, after the order already
- * exists, to make the *order itself* show which group actually computed its
- * tax instead of the customer's real account group ("General," etc.).
+ * Sets the PLACED ORDER's own `customer_group_id` to whichever of the 4
+ * VAT/tax groups (B2C/B2B_REGISTERED/B2B_NON_REGISTERED/B2B_TAX_EXEMPT)
+ * actually governed its tax calculation — permanently, on the order row
+ * only. Does NOT touch the customer's account group (customer_entity) and
+ * does NOT change anything about Observer\Vat\SetQuoteCustomerGroup /
+ * RestoreQuoteCustomerGroup, which keep swapping the QUOTE's group
+ * temporarily during active checkout (still needed so mid-session totals
+ * collections, e.g. an intermediate page reload, aren't affected). This
+ * only runs once, after the order already exists, to make the *order
+ * itself* show which group actually computed its tax instead of the
+ * customer's real account group ("General," etc.).
  *
- * Hooks `checkout_submit_all_after` (same event Observer\Gst\
- * CopyGstAmountToOrder uses) — fires for every order placement regardless of
- * payment method or code path (native checkout, admin, REST/GraphQL).
- *
- * Re-resolves from the QUOTE (not the order) because CustomerGroupResolver
- * expects a Magento\Quote\Model\Quote\Address, and the quote is still
- * available on this same event.
+ * Hooks `checkout_submit_all_after` — fires for every order placement
+ * regardless of payment method or code path (native checkout, admin,
+ * REST/GraphQL).
  */
 class SetOrderCustomerGroup implements ObserverInterface
 {
@@ -59,18 +56,7 @@ class SetOrderCustomerGroup implements ObserverInterface
             return;
         }
 
-        $address = $quote->getBillingAddress();
-        if (!$address || !$address->getCountryId()) {
-            return;
-        }
-
-        // Same B2B-only backstop as SetQuoteCustomerGroup — never trust a VAT
-        // number OR a certificate/exempt-file on a non-B2B quote, even here.
-        $isB2b = (string) $quote->getData('financing_profile') === 'b2b';
-        $hasLetter = $isB2b
-            && (bool) ($quote->getData('certificate_id') ?: $quote->getData('tax_exempt_file'));
-        $vatNumber = $isB2b ? (string) $quote->getData('vat_intracommunity') : '';
-        $groupId = $this->groupResolver->resolve($address, $vatNumber, $hasLetter);
+        $groupId = $this->groupResolver->resolve($quote);
 
         if ($groupId === null || $groupId === (int) $order->getCustomerGroupId()) {
             return;

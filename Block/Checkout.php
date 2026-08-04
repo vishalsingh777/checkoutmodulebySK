@@ -70,7 +70,7 @@ class Checkout extends Template
             'customer'       => $this->getCustomerData(),
             'countries'      => $this->getCountries(),
             'prefill'        => $this->getPrefill(),
-            'programmeInSingapore' => $this->isProgrammeInSingapore(),
+            'gstEnabled'     => $this->isGstDeclarationEnabled(),
             'showGenderFieldB2c'      => $this->isGenderFieldEnabled('b2c'),
             'showGenderFieldB2b'      => $this->isGenderFieldEnabled('b2b'),
             'showNationalityFieldB2c' => $this->isNationalityFieldEnabled('b2c'),
@@ -344,39 +344,57 @@ class Checkout extends Template
         return $data;
     }
 
-    /** Whether the programme is held in Singapore (drives the GST Declaration). */
-    private function isProgrammeInSingapore(): bool
+    /**
+     * Whether Singapore GST handling is on — a single admin flag that gates
+     * BOTH the frontend GST Declaration / residency declaration fields AND
+     * the backend group assignment + GST total calculation. Sourced from
+     * insead_checkout/gst_group/enabled, which should be Yes only at the
+     * scope of the Singapore selling-entity store(s) (e.g. lhub_sgp).
+     */
+    private function isGstDeclarationEnabled(): bool
     {
         return $this->scopeConfig->isSetFlag(
-            'insead_checkout/insead_customcheckout/programme_in_singapore',
+            'insead_checkout/gst_group/enabled',
             ScopeInterface::SCOPE_STORE
         );
     }
 
-    /** Whether the Gender field is shown on the Billing Information step for the given profile. */
+    /**
+     * Whether the Gender field is shown on the Billing Information step for
+     * the given profile. Backed by the consolidated `show_gender_field`
+     * multiselect (was two separate Yes/No fields, show_gender_field_b2c /
+     * show_gender_field_b2b) — see Model\Config\Source\Profile.
+     */
     private function isGenderFieldEnabled(string $profile): bool
     {
-        return $this->scopeConfig->isSetFlag(
-            'insead_checkout/insead_customcheckout/show_gender_field_' . $profile,
-            ScopeInterface::SCOPE_STORE
-        );
+        return $this->isProfileFlagEnabled('show_gender_field', $profile);
     }
 
     /** Whether the Nationality field is shown on the Billing Information step for the given profile. */
     private function isNationalityFieldEnabled(string $profile): bool
     {
-        return $this->scopeConfig->isSetFlag(
-            'insead_checkout/insead_customcheckout/show_nationality_field_' . $profile,
-            ScopeInterface::SCOPE_STORE
-        );
+        return $this->isProfileFlagEnabled('show_nationality_field', $profile);
     }
 
     /** Whether Phone is mandatory on the Billing Information step for the given profile. */
     private function isPhoneRequired(string $profile): bool
     {
-        return $this->scopeConfig->isSetFlag(
-            'insead_checkout/insead_customcheckout/phone_required_' . $profile,
+        return $this->isProfileFlagEnabled('phone_required', $profile);
+    }
+
+    /**
+     * True if $profile ('b2c' or 'b2b') is one of the checked options in the
+     * consolidated multiselect at insead_checkout/insead_customcheckout/$field
+     * (stored as Magento's standard comma-separated multiselect value, e.g.
+     * "b2c,b2b" or just "b2c").
+     */
+    private function isProfileFlagEnabled(string $field, string $profile): bool
+    {
+        $raw = (string) $this->scopeConfig->getValue(
+            'insead_checkout/insead_customcheckout/' . $field,
             ScopeInterface::SCOPE_STORE
         );
+
+        return in_array($profile, array_filter(array_map('trim', explode(',', $raw))), true);
     }
 }

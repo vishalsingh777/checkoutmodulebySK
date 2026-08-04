@@ -12,70 +12,68 @@
     <table name="quote">
         <column xsi:type="varchar" name="gender" nullable="true" length="32" comment="Customer Gender"/>
         <column xsi:type="varchar" name="nationality" nullable="true" length="2" comment="Customer Nationality (ISO country code)"/>
-        <column xsi:type="varchar" name="job_industry" nullable="true" length="150" comment="Job Industry"/>
+        <column xsi:type="text" name="job_industry" nullable="true" comment="Job Industry"/>
         <column xsi:type="varchar" name="financing_profile" nullable="true" length="50" comment="B2C or B2B"/>
         <column xsi:type="varchar" name="tax_registration_status" nullable="true" length="50" comment="Tax Registration Status"/>
-        <column xsi:type="varchar" name="company_legal_name" nullable="true" length="255" comment="Company Full Legal Name"/>
-        <column xsi:type="varchar" name="commercial_company_name" nullable="true" length="255" comment="Commercial Company Name"/>
-        <column xsi:type="varchar" name="organization_type" nullable="true" length="100" comment="Organization Type"/>
-        <column xsi:type="varchar" name="uen" nullable="true" length="50" comment="UEN/Business Reg Number"/>
-        <column xsi:type="varchar" name="vat_intracommunity" nullable="true" length="50" comment="VAT Intracommunity Number"/>
-        <column xsi:type="varchar" name="vat_uae" nullable="true" length="50" comment="UAE VAT Number"/>
-        <column xsi:type="varchar" name="trn" nullable="true" length="50" comment="UAE Tax Registration Number (TRN)"/>
-        <column xsi:type="varchar" name="ein" nullable="true" length="50" comment="US Employer Identification Number (EIN)"/>
-        <column xsi:type="varchar" name="gst_number" nullable="true" length="50" comment="Singapore GST Number"/>
-        <column xsi:type="varchar" name="tax_id_number" nullable="true" length="50" comment="Tax ID Number"/>
-        <column xsi:type="varchar" name="certificate_id" nullable="true" length="50" comment="Certificate ID"/>
-        <column xsi:type="varchar" name="duns_number" nullable="true" length="50" comment="DUNS Number"/>
-        <column xsi:type="varchar" name="routing_address" nullable="true" length="255" comment="Routing Address"/>
-        <column xsi:type="varchar" name="tax_exempt_file" nullable="true" length="255" comment="Tax Exempt Certificate File"/>
-        <column xsi:type="varchar" name="invoice_recipient_firstname" nullable="true" length="100" comment="Invoice Recipient First Name"/>
-        <column xsi:type="varchar" name="invoice_recipient_lastname" nullable="true" length="100" comment="Invoice Recipient Last Name"/>
-        <column xsi:type="varchar" name="invoice_email" nullable="true" length="255" comment="Invoice Email"/>
-        <column xsi:type="varchar" name="reg_type_label" nullable="true" length="100" comment="Registration Type Label"/>
-        <column xsi:type="varchar" name="reg_type_value" nullable="true" length="100" comment="Registration Type Value"/>
-        <column xsi:type="varchar" name="credit_consumption_code" nullable="true" length="100" comment="Credit Consumption Code"/>
+        <column xsi:type="text" name="company_legal_name" nullable="true" comment="Company Full Legal Name"/>
+        <column xsi:type="text" name="commercial_company_name" nullable="true" comment="Commercial Company Name"/>
+        <column xsi:type="text" name="organization_type" nullable="true" comment="Organization Type"/>
+        <column xsi:type="text" name="uen" nullable="true" comment="UEN/Business Reg Number"/>
+        <column xsi:type="text" name="vat_intracommunity" nullable="true" comment="VAT Intracommunity Number"/>
+        <column xsi:type="text" name="vat_uae" nullable="true" comment="UAE VAT Number"/>
+        <column xsi:type="text" name="trn" nullable="true" comment="UAE Tax Registration Number (TRN)"/>
+        <column xsi:type="text" name="ein" nullable="true" comment="US Employer Identification Number (EIN)"/>
+        <column xsi:type="text" name="gst_number" nullable="true" comment="Singapore GST Number"/>
+        <column xsi:type="text" name="tax_id_number" nullable="true" comment="Tax ID Number"/>
+        <column xsi:type="text" name="certificate_id" nullable="true" comment="Certificate ID"/>
+        <column xsi:type="text" name="duns_number" nullable="true" comment="DUNS Number"/>
+        <column xsi:type="text" name="routing_address" nullable="true" comment="Routing Address"/>
+        <column xsi:type="text" name="tax_exempt_file" nullable="true" comment="Tax Exempt Certificate File"/>
+        <column xsi:type="text" name="invoice_recipient_firstname" nullable="true" comment="Invoice Recipient First Name"/>
+        <column xsi:type="text" name="invoice_recipient_lastname" nullable="true" comment="Invoice Recipient Last Name"/>
+        <column xsi:type="text" name="invoice_email" nullable="true" comment="Invoice Email"/>
+        <column xsi:type="text" name="reg_type_label" nullable="true" comment="Registration Type Label"/>
+        <column xsi:type="text" name="reg_type_value" nullable="true" comment="Registration Type Value"/>
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
         <column xsi:type="smallint" name="insead_billing_confirmed" padding="5" unsigned="true" nullable="true" default="0"
                 comment="1 once the INSEAD Tax &amp; Legal / Billing Information step has been saved for this quote. Gates the handoff from the custom billing step to native Magento checkout for payment — see Observer\AddCustomCheckoutLayoutHandle."/>
         <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
-                comment="Singapore GST computed by Model\Total\Quote\Gst for B2B orders on the Singapore selling entity, based on the gst_declaration answer (not billing/shipping country) — see that class's docblock."/>
+                comment="LEGACY / no longer written to: Singapore GST used to be computed here by the now-retired Model\Total\Quote\Gst (B2B flat-rate total). GST is now calculated by native Tax Rules keyed to the 6 Singapore GST customer groups' Tax Classes instead — see Model\Gst\CustomerGroupResolver. Column kept (not dropped) in case existing rows still reference it; safe to remove in a future cleanup once confirmed unused."/>
         <column xsi:type="decimal" name="insead_base_gst_amount" scale="4" precision="20" nullable="true"
                 comment="Same as insead_gst_amount, in base currency."/>
     </table>
     <table name="sales_order">
         <column xsi:type="varchar" name="gender" nullable="true" length="32" comment="Customer Gender"/>
         <column xsi:type="varchar" name="nationality" nullable="true" length="2" comment="Customer Nationality (ISO country code)"/>
-        <column xsi:type="varchar" name="job_industry" nullable="true" length="150" comment="Job Industry"/>
+        <column xsi:type="text" name="job_industry" nullable="true" comment="Job Industry"/>
         <column xsi:type="varchar" name="financing_profile" nullable="true" length="50" comment="B2C or B2B"/>
         <column xsi:type="varchar" name="tax_registration_status" nullable="true" length="50" comment="Tax Registration Status"/>
-        <column xsi:type="varchar" name="company_legal_name" nullable="true" length="255" comment="Company Full Legal Name"/>
-        <column xsi:type="varchar" name="commercial_company_name" nullable="true" length="255" comment="Commercial Company Name"/>
-        <column xsi:type="varchar" name="organization_type" nullable="true" length="100" comment="Organization Type"/>
-        <column xsi:type="varchar" name="uen" nullable="true" length="50" comment="UEN/Business Reg Number"/>
-        <column xsi:type="varchar" name="vat_intracommunity" nullable="true" length="50" comment="VAT Intracommunity Number"/>
-        <column xsi:type="varchar" name="vat_uae" nullable="true" length="50" comment="UAE VAT Number"/>
-        <column xsi:type="varchar" name="trn" nullable="true" length="50" comment="UAE Tax Registration Number (TRN)"/>
-        <column xsi:type="varchar" name="ein" nullable="true" length="50" comment="US Employer Identification Number (EIN)"/>
-        <column xsi:type="varchar" name="gst_number" nullable="true" length="50" comment="Singapore GST Number"/>
-        <column xsi:type="varchar" name="tax_id_number" nullable="true" length="50" comment="Tax ID Number"/>
-        <column xsi:type="varchar" name="certificate_id" nullable="true" length="50" comment="Certificate ID"/>
-        <column xsi:type="varchar" name="duns_number" nullable="true" length="50" comment="DUNS Number"/>
-        <column xsi:type="varchar" name="routing_address" nullable="true" length="255" comment="Routing Address"/>
-        <column xsi:type="varchar" name="tax_exempt_file" nullable="true" length="255" comment="Tax Exempt Certificate File"/>
-        <column xsi:type="varchar" name="invoice_recipient_firstname" nullable="true" length="100" comment="Invoice Recipient First Name"/>
-        <column xsi:type="varchar" name="invoice_recipient_lastname" nullable="true" length="100" comment="Invoice Recipient Last Name"/>
-        <column xsi:type="varchar" name="invoice_email" nullable="true" length="255" comment="Invoice Email"/>
-        <column xsi:type="varchar" name="reg_type_label" nullable="true" length="100" comment="Registration Type Label"/>
-        <column xsi:type="varchar" name="reg_type_value" nullable="true" length="100" comment="Registration Type Value"/>
-        <column xsi:type="varchar" name="credit_consumption_code" nullable="true" length="100" comment="Credit Consumption Code"/>
+        <column xsi:type="text" name="company_legal_name" nullable="true" comment="Company Full Legal Name"/>
+        <column xsi:type="text" name="commercial_company_name" nullable="true" comment="Commercial Company Name"/>
+        <column xsi:type="text" name="organization_type" nullable="true" comment="Organization Type"/>
+        <column xsi:type="text" name="uen" nullable="true" comment="UEN/Business Reg Number"/>
+        <column xsi:type="text" name="vat_intracommunity" nullable="true" comment="VAT Intracommunity Number"/>
+        <column xsi:type="text" name="vat_uae" nullable="true" comment="UAE VAT Number"/>
+        <column xsi:type="text" name="trn" nullable="true" comment="UAE Tax Registration Number (TRN)"/>
+        <column xsi:type="text" name="ein" nullable="true" comment="US Employer Identification Number (EIN)"/>
+        <column xsi:type="text" name="gst_number" nullable="true" comment="Singapore GST Number"/>
+        <column xsi:type="text" name="tax_id_number" nullable="true" comment="Tax ID Number"/>
+        <column xsi:type="text" name="certificate_id" nullable="true" comment="Certificate ID"/>
+        <column xsi:type="text" name="duns_number" nullable="true" comment="DUNS Number"/>
+        <column xsi:type="text" name="routing_address" nullable="true" comment="Routing Address"/>
+        <column xsi:type="text" name="tax_exempt_file" nullable="true" comment="Tax Exempt Certificate File"/>
+        <column xsi:type="text" name="invoice_recipient_firstname" nullable="true" comment="Invoice Recipient First Name"/>
+        <column xsi:type="text" name="invoice_recipient_lastname" nullable="true" comment="Invoice Recipient Last Name"/>
+        <column xsi:type="text" name="invoice_email" nullable="true" comment="Invoice Email"/>
+        <column xsi:type="text" name="reg_type_label" nullable="true" comment="Registration Type Label"/>
+        <column xsi:type="text" name="reg_type_value" nullable="true" comment="Registration Type Value"/>
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
         <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
-                comment="Singapore GST computed by Model\Total\Quote\Gst for B2B orders on the Singapore selling entity, based on the gst_declaration answer (not billing/shipping country) — see that class's docblock."/>
+                comment="LEGACY / no longer written to: Singapore GST used to be computed here by the now-retired Model\Total\Quote\Gst (B2B flat-rate total). GST is now calculated by native Tax Rules keyed to the 6 Singapore GST customer groups' Tax Classes instead — see Model\Gst\CustomerGroupResolver. Column kept (not dropped) in case existing rows still reference it; safe to remove in a future cleanup once confirmed unused."/>
         <column xsi:type="decimal" name="insead_base_gst_amount" scale="4" precision="20" nullable="true"
                 comment="Same as insead_gst_amount, in base currency."/>
     </table>
@@ -91,7 +89,7 @@
         <column xsi:type="varchar" name="tax_registration_country" nullable="true" length="40" comment="Tax Registration Country"/>
         <column xsi:type="varchar" name="tax_registration_status" nullable="true" length="40" comment="Tax Registration Status"/>
         <column xsi:type="varchar" name="tax_exemption_letter_yn" nullable="true" length="1" comment="Tax Exemption Letter Y/N"/>
-        <column xsi:type="varchar" name="duns_number" nullable="true" length="40" comment="DUNS Number"/>
+        <column xsi:type="varchar" name="duns_number" nullable="true" length="50" comment="DUNS Number"/>
         <column xsi:type="varchar" name="certification_number" nullable="true" length="40" comment="Certification Number"/>
         <column xsi:type="varchar" name="tax_member_group" nullable="true" length="40" comment="Tax Member Group"/>
         <column xsi:type="varchar" name="sic_code" nullable="true" length="30" comment="SIC Code"/>
