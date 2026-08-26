@@ -236,17 +236,20 @@
                         </label>
                         <input type="text" data-bind="value: companyLegalName, valueUpdate: 'input', enable: !isCompanyNameAuto()"/>
                     </div>
-                    <div class="field">
-                        <label>Commercial Company Name
+                    <!-- ko if: showCommercialCompanyName -->
+                    <div class="field" data-bind="css: {'_error': hasError('companyTradeName')}">
+                        <label>Commercial Company Name <!-- ko if: commercialCompanyNameRequired --><span class="req">*</span><!-- /ko -->
                             <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The trading or brand name your company uses commercially, if different from its legal name.</span></span>
                         </label>
                         <input type="text" data-bind="value: companyTradeName, valueUpdate: 'input'"/>
                     </div>
+                    <!-- /ko -->
                 </div>
 
                 <div class="field-row two-col">
+                    <!-- ko if: showOrganizationType -->
                     <div class="field" data-bind="css: {'_error': hasError('organizationType')}">
-                        <label>Organization Type <span class="req">*</span></label>
+                        <label>Organisation Type <!-- ko if: organizationTypeRequired --><span class="req">*</span><!-- /ko --></label>
                         <select data-bind="value: organizationType">
                             <option value="">Select an Option</option>
                             <!-- ko foreach: organizationTypes -->
@@ -254,8 +257,10 @@
                             <!-- /ko -->
                         </select>
                     </div>
+                    <!-- /ko -->
+                    <!-- ko if: showJobIndustry -->
                     <div class="field" data-bind="css: {'_error': hasError('jobIndustry')}">
-                        <label>Job Industry <span class="req">*</span></label>
+                        <label>Job Industry <!-- ko if: jobIndustryRequired --><span class="req">*</span><!-- /ko --></label>
                         <select data-bind="value: jobIndustry">
                             <option value="">Select an Option</option>
                             <!-- ko foreach: jobIndustries -->
@@ -263,6 +268,7 @@
                             <!-- /ko -->
                         </select>
                     </div>
+                    <!-- /ko -->
                 </div>
 
                 <h3 class="insead-subhead">Postal Address</h3>
@@ -342,7 +348,7 @@
 
         <!-- Actions -->
         <div class="insead-actions">
-            <a class="insead-link" data-bind="attr: {href: endpointUrls.cart}">Back</a>
+            <a class="insead-btn" data-bind="attr: {href: endpointUrls.cart}">Back</a>
             <span class="insead-actions__right">
                 <!-- Redirects to native Magento checkout for payment on success —
                      see Controller\Billing\Save and Observer\AddCustomCheckoutLayoutHandle.

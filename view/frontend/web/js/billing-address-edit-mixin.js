@@ -2,29 +2,38 @@
  * The billing address on this quote was collected by INSEAD's own Billing
  * Information step (country-group Tax & Legal cascade, GST Declaration,
  * company lookup — none of which exist in native Magento's address form).
- * Native checkout's own billing-address component still shows a read-only
- * summary of that address with its own "Edit" button once the quote already
- * has a valid one — but that button opens Magento's STOCK address form,
- * which has no knowledge of any of the above and would let someone silently
- * change the address without touching the fields it depends on (tax status,
- * VAT/registration numbers, GST declaration, etc.).
+ * Every enabled payment method (Braintree, Stripe, PayPal, etc.) shows its
+ * own "Edit" toggle next to the billing address summary once a valid
+ * address exists on the quote — confirmed via direct inspection to be a
+ * checkbox-style toggle (class "edit-address", paired with a hidden
+ * checkbox input via isCheckboxChecked/checkboxChange), rendered by
+ * whichever payment method's own component is currently active — NOT a
+ * single shared element owned by Magento_Checkout/js/view/billing-address
+ * itself, despite that being the component this mixin attaches to. That
+ * toggle leads to Magento's STOCK address form, which has no knowledge of
+ * any of the above and would let someone silently change the address
+ * without touching the fields it depends on (tax status, VAT/registration
+ * numbers, GST declaration, etc.).
  *
  * Per explicit instruction: this must not show at all on quotes that went
  * through our step — not just redirect elsewhere when clicked. Detected via
- * the presence of the "Edit Billing Information" link (`.insead-payment-extras`),
- * which Block\PaymentPageExtras only ever renders when
- * insead_billing_confirmed=1 for this quote (see that class's shouldShow()).
- * On any other quote/store — this module's flow was never used — nothing
- * here does anything, and native behavior is completely untouched.
+ * window.checkoutConfig.inseadBillingConfirmed (see
+ * Plugin\UseQuoteBillingAddressPlugin::afterGetConfig), falling back to the
+ * presence of the "Edit Billing Information" link (`.insead-payment-extras`)
+ * if that config value is somehow unavailable. On any other quote/store —
+ * this module's flow was never used — nothing here does anything, and
+ * native behavior is completely untouched.
  *
- * Two layers, since the exact CSS class native checkout's Edit button uses
- * can vary by theme (same class-name uncertainty documented for the header
- * cleanup earlier in this project — see that work for how to verify/adjust
- * if these selectors don't match this theme):
- *   1. Hide it outright via the selectors below (standard Luma class names).
- *   2. Fallback safety net: even if hiding missed (unrecognized theme
- *      markup), a click must NEVER open Magento's stock form — redirect to
- *      our own edit page instead, same as this mixin did previously.
+ * Two layers, since which payment method is selected/expanded (and
+ * therefore which component actually renders this toggle) can change after
+ * page load:
+ *   1. Hide it outright via the confirmed real selector (.edit-address),
+ *      re-run on every DOM change via MutationObserver — since each payment
+ *      method renders its own copy independently, at unpredictable times,
+ *      switching between them can't be caught by a single fixed-delay retry.
+ *   2. Fallback safety net: even if hiding missed (unrecognized theme/
+ *      payment-method markup), a click must NEVER open Magento's stock
+ *      form — redirect to our own edit page instead.
  */
 define([
     'jquery'
@@ -49,14 +58,26 @@ define([
     }
 
     function hideNativeEditButton() {
-        var selectors = [
-            '.box-billing-address .action-edit-address',
-            '.box-billing-address .action-edit',
-            '.box-billing-address [data-bind*="editAddress"]'
-        ];
-        selectors.forEach(function (sel) {
+        // Confirmed via direct page inspection: this is a <label
+        // class="action primary edit-address"> toggling a paired hidden
+        // checkbox (isCheckboxChecked/checkboxChange), rendered by the
+        // active payment method's own component (e.g. Braintree — the
+        // element's id includes "...payments-list.braintree"), NOT by
+        // Magento_Checkout/js/view/billing-address itself. It doesn't live
+        // under .box-billing-address, so that scoping was also wrong — this
+        // targets the real class directly instead, plus the earlier guesses
+        // as harmless no-op fallbacks in case another theme/payment method
+        // genuinely uses one of them.
+        var labelSelectors = ['.edit-address', '.action-edit-address', '.action-edit'];
+        labelSelectors.forEach(function (sel) {
             document.querySelectorAll(sel).forEach(function (el) {
-                el.style.display = 'none';
+                // Hide the whole wrapping container (checkbox + label
+                // together, e.g. <div class="field-checkbox ...">), not
+                // just the label — so the checkbox itself is also removed
+                // from keyboard/assistive-tech reach, not merely invisible
+                // text next to a still-focusable control.
+                var container = el.closest('.field-checkbox') || el.parentElement || el;
+                container.style.display = 'none';
             });
         });
     }
@@ -66,14 +87,26 @@ define([
             initialize: function () {
                 this._super();
                 if (isInseadFlowQuote()) {
-                    // The billing-address summary can render/re-render after
-                    // this component initializes (e.g. once totals/address
-                    // data finishes loading), so a single immediate hide
-                    // attempt can run before the button exists yet. A short
-                    // delayed retry covers that without needing to hook this
-                    // theme's exact render-complete event.
                     hideNativeEditButton();
-                    setTimeout(hideNativeEditButton, 500);
+                    // This checkbox belongs to whichever payment method is
+                    // currently selected/expanded (Braintree, Stripe, PayPal,
+                    // etc. each render their own independently) — switching
+                    // payment methods re-renders it at a time a single fixed
+                    // retry can't reliably predict. A MutationObserver on the
+                    // whole payment area re-runs the hide check on every DOM
+                    // change instead, for as long as this page exists.
+                    var target = document.querySelector('.opc-payment')
+                        || document.querySelector('.opc-wrapper')
+                        || document.body;
+                    if (target && window.MutationObserver) {
+                        new MutationObserver(hideNativeEditButton)
+                            .observe(target, { childList: true, subtree: true });
+                    } else {
+                        // Fallback for a browser without MutationObserver
+                        // (shouldn't happen in any supported browser today).
+                        setTimeout(hideNativeEditButton, 500);
+                        setTimeout(hideNativeEditButton, 1500);
+                    }
                 }
                 return this;
             },

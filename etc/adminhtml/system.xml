@@ -44,6 +44,42 @@
                     <source_model>Insead\CustomCheckout\Model\Config\Source\OptionalTaxField</source_model>
                     <comment>Which OPTIONAL Tax &amp; Legal Information fields to show, across every country/tax-status combination they'd otherwise appear in. Unchecked by default — only mandatory fields and PO Number show out of the box. Mandatory fields (marked with *) are never affected by this setting; they always show. Configurable per website / store view.</comment>
                 </field>
+                <field id="show_commercial_company_name" translate="label comment" type="select" sortOrder="90"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Commercial Company Name</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Commercial Company Name field in Organisation Details (Sponsored by Organisation only). Configurable per website / store view.</comment>
+                </field>
+                <field id="commercial_company_name_required" translate="label comment" type="select" sortOrder="100"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Commercial Company Name Required</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Whether Commercial Company Name is mandatory. Has no effect if Show Commercial Company Name above is No — a hidden field is never required. Configurable per website / store view.</comment>
+                </field>
+                <field id="show_organization_type" translate="label comment" type="select" sortOrder="110"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Organisation Type</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Organisation Type field in Organisation Details (Sponsored by Organisation only). Configurable per website / store view.</comment>
+                </field>
+                <field id="organization_type_required" translate="label comment" type="select" sortOrder="120"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Organisation Type Required</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Whether Organisation Type is mandatory. Has no effect if Show Organisation Type above is No. Configurable per website / store view.</comment>
+                </field>
+                <field id="show_job_industry" translate="label comment" type="select" sortOrder="130"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Job Industry</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Show the Job Industry field in Organisation Details (Sponsored by Organisation only). Configurable per website / store view.</comment>
+                </field>
+                <field id="job_industry_required" translate="label comment" type="select" sortOrder="140"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Job Industry Required</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment>Whether Job Industry is mandatory. Has no effect if Show Job Industry above is No. Configurable per website / store view.</comment>
+                </field>
             </group>
             <group id="vat_group" translate="label" type="text" sortOrder="1005"
                    showInDefault="1" showInWebsite="1" showInStore="1">

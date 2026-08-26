@@ -4,6 +4,7 @@
     --insead-green: #00634e;
     --insead-green-text: #1f8a5b;
     --insead-yellow: #f6d100;
+    --insead-orange: #e67310;
     --insead-border: #d9dde1;
     --insead-text: #2b2f33;
     --insead-muted: #6b7177;
@@ -210,24 +211,42 @@
     margin-top: 26px;
 }
 .insead-actions__right { display: flex; align-items: center; gap: 22px; }
-.insead-link {
-    color: #1976d2;
+.insead-checkout .insead-link,
+.insead-payment-extras .insead-link,
+.insead-checkout .insead-link:visited,
+.insead-payment-extras .insead-link:visited {
+    color: var(--insead-orange);
     cursor: pointer;
     font-weight: 600;
     text-decoration: none;
 }
-.insead-link._center { display: block; text-align: center; margin-top: 12px; }
 .insead-btn {
-    background: var(--insead-yellow);
-    color: #1a1a1a;
-    border: none;
+    display: inline-block;
+    background: var(--insead-orange);
+    border: 1px solid var(--insead-orange);
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Roboto', Helvetica, Arial, sans-serif;
     border-radius: 24px;
     padding: 12px 28px;
     font-size: 15px;
     font-weight: 700;
-    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
 }
-.insead-btn:hover { filter: brightness(.97); }
+.insead-btn:visited,
+.insead-checkout .insead-btn:visited,
+.insead-payment-extras .insead-btn:visited {
+    color: #fff;
+}
+.insead-btn:hover,
+.insead-checkout .insead-btn:hover,
+.insead-payment-extras .insead-btn:hover {
+    background: var(--insead-orange);
+    border-color: var(--insead-orange);
+    color: #fff;
+    filter: brightness(.9);
+}
 .insead-btn[disabled] {
     background: #d9dbde;
     color: #8a8f98;

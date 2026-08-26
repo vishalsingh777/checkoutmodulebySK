@@ -238,6 +238,12 @@ define([
             showPhoneFieldB2c: true,
             showPhoneFieldB2b: true,
             showOptionalTaxFields: {},
+            showCommercialCompanyName: true,
+            commercialCompanyNameRequired: false,
+            showOrganizationType: true,
+            organizationTypeRequired: true,
+            showJobIndustry: true,
+            jobIndustryRequired: true,
             phoneRequiredB2c: true,
             phoneRequiredB2b: false,
             urls: {},
@@ -284,6 +290,12 @@ define([
             this.showPhoneFieldB2c = !!this.showPhoneFieldB2c;
             this.showPhoneFieldB2b = !!this.showPhoneFieldB2b;
             this.showOptionalTaxFields = this.showOptionalTaxFields || {};
+            this.showCommercialCompanyName = !!this.showCommercialCompanyName;
+            this.commercialCompanyNameRequired = !!this.commercialCompanyNameRequired;
+            this.showOrganizationType = !!this.showOrganizationType;
+            this.organizationTypeRequired = !!this.organizationTypeRequired;
+            this.showJobIndustry = !!this.showJobIndustry;
+            this.jobIndustryRequired = !!this.jobIndustryRequired;
             this.phoneRequiredB2c = !!this.phoneRequiredB2c;
             this.phoneRequiredB2b = !!this.phoneRequiredB2b;
 
@@ -943,9 +955,15 @@ define([
                 if (this.showPhoneFieldB2b && this.phoneRequiredB2b && !this.customerTelephone()) { errs.customerTelephone = true; }
                 if (this.showNationalityFieldB2b && !this.nationality()) { errs.nationality = true; }
                 if (!this.companyLegalName()) { errs.companyLegalName = true; }
-                // companyTradeName (Commercial Company Name) is optional per spec
-                if (!this.organizationType()) { errs.organizationType = true; }
-                if (!this.jobIndustry()) { errs.jobIndustry = true; }
+                if (this.showCommercialCompanyName && this.commercialCompanyNameRequired && !this.companyTradeName()) {
+                    errs.companyTradeName = true;
+                }
+                if (this.showOrganizationType && this.organizationTypeRequired && !this.organizationType()) {
+                    errs.organizationType = true;
+                }
+                if (this.showJobIndustry && this.jobIndustryRequired && !this.jobIndustry()) {
+                    errs.jobIndustry = true;
+                }
                 if (!this.companyStreet1()) { errs.companyStreet1 = true; }
                 if (!this.companyCity()) { errs.companyCity = true; }
                 if (!this.companyZip()) { errs.companyZip = true; }

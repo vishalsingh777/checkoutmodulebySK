@@ -86,6 +86,12 @@ class Checkout extends Template
                 'cert_opt' => $this->isOptionalTaxFieldEnabled('cert_opt'),
                 'reg_type' => $this->isOptionalTaxFieldEnabled('reg_type'),
             ],
+            'showCommercialCompanyName'     => $this->isSimpleFlagEnabled('show_commercial_company_name'),
+            'commercialCompanyNameRequired' => $this->isSimpleFlagEnabled('commercial_company_name_required'),
+            'showOrganizationType'          => $this->isSimpleFlagEnabled('show_organization_type'),
+            'organizationTypeRequired'      => $this->isSimpleFlagEnabled('organization_type_required'),
+            'showJobIndustry'               => $this->isSimpleFlagEnabled('show_job_industry'),
+            'jobIndustryRequired'           => $this->isSimpleFlagEnabled('job_industry_required'),
             'formKey'             => $this->formKey->getFormKey(),
             'urls'                => [
                 'lookup'      => $this->getUrl('insead_checkout/company/lookup'),
@@ -452,6 +458,20 @@ class Checkout extends Template
         );
 
         return in_array($field, array_filter(array_map('trim', explode(',', $raw))), true);
+    }
+
+    /**
+     * Plain Yes/No config read for a field that has no B2C/B2B dimension
+     * (Commercial Company Name / Organisation Type / Job Industry are B2B
+     * Organisation Details fields only — there's no B2C equivalent to
+     * toggle separately, unlike Gender/Nationality/Phone above).
+     */
+    private function isSimpleFlagEnabled(string $field): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            'insead_checkout/insead_customcheckout/' . $field,
+            ScopeInterface::SCOPE_STORE
+        );
     }
 
     /**

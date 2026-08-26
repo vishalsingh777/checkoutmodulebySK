@@ -25,7 +25,7 @@ class OrderInfo extends Template
         'tax_registration_status'     => 'Tax Registration Status',
         'company_legal_name'          => 'Company Legal Name',
         'commercial_company_name'     => 'Commercial Company Name',
-        'organization_type'           => 'Organization Type',
+        'organization_type'           => 'Organisation Type',
         'invoice_recipient_firstname' => 'Invoice Recipient First Name',
         'invoice_recipient_lastname'  => 'Invoice Recipient Last Name',
         'invoice_email'               => 'Invoice Email',

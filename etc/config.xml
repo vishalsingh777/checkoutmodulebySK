@@ -24,6 +24,18 @@
                      taxreg, cert_opt, and/or reg_type per website / store
                      view to show any of them. -->
                 <show_optional_tax_fields></show_optional_tax_fields>
+                <!-- Organisation Details fields — B2B only, so a single
+                     Yes/No per field rather than the B2C/B2B multiselect
+                     pattern used above (there's no B2C equivalent for any
+                     of these three). Defaults match current behavior:
+                     all shown; Commercial Company Name optional,
+                     Organisation Type and Job Industry required. -->
+                <show_commercial_company_name>1</show_commercial_company_name>
+                <commercial_company_name_required>0</commercial_company_name_required>
+                <show_organization_type>1</show_organization_type>
+                <organization_type_required>1</organization_type_required>
+                <show_job_industry>1</show_job_industry>
+                <job_industry_required>1</job_industry_required>
             </insead_customcheckout>
             <insee_lookup>
                 <!-- Off by default until an API key is configured. -->
