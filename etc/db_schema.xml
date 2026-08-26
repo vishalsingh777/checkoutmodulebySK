@@ -21,8 +21,6 @@
         <column xsi:type="text" name="uen" nullable="true" comment="UEN/Business Reg Number"/>
         <column xsi:type="text" name="vat_intracommunity" nullable="true" comment="VAT Intracommunity Number"/>
         <column xsi:type="text" name="vat_uae" nullable="true" comment="UAE VAT Number"/>
-        <column xsi:type="text" name="trn" nullable="true" comment="UAE Tax Registration Number (TRN)"/>
-        <column xsi:type="text" name="ein" nullable="true" comment="US Employer Identification Number (EIN)"/>
         <column xsi:type="text" name="gst_number" nullable="true" comment="Singapore GST Number"/>
         <column xsi:type="text" name="tax_id_number" nullable="true" comment="Tax ID Number"/>
         <column xsi:type="text" name="certificate_id" nullable="true" comment="Certificate ID"/>
@@ -56,8 +54,6 @@
         <column xsi:type="text" name="uen" nullable="true" comment="UEN/Business Reg Number"/>
         <column xsi:type="text" name="vat_intracommunity" nullable="true" comment="VAT Intracommunity Number"/>
         <column xsi:type="text" name="vat_uae" nullable="true" comment="UAE VAT Number"/>
-        <column xsi:type="text" name="trn" nullable="true" comment="UAE Tax Registration Number (TRN)"/>
-        <column xsi:type="text" name="ein" nullable="true" comment="US Employer Identification Number (EIN)"/>
         <column xsi:type="text" name="gst_number" nullable="true" comment="Singapore GST Number"/>
         <column xsi:type="text" name="tax_id_number" nullable="true" comment="Tax ID Number"/>
         <column xsi:type="text" name="certificate_id" nullable="true" comment="Certificate ID"/>

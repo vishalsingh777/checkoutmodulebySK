@@ -5,7 +5,9 @@ namespace Insead\CustomCheckout\Plugin;
 
 use Magento\Checkout\Model\DefaultConfigProvider;
 use Magento\Checkout\Model\Session as CheckoutSession;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ResourceConnection;
+use Magento\Store\Model\ScopeInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -22,17 +24,22 @@ use Psr\Log\LoggerInterface;
  * the right one — and marks it as the default. billingAddressFromData is
  * also set so it takes effect even before the JS address-resolver runs.
  *
- * Scoped to quotes that went through our step so unrelated flows are
- * completely unaffected.
+ * Scoped to quotes that went through our step AND stores where the module
+ * is currently enabled — both conditions, not just one — so unrelated
+ * flows (and stores where this has since been turned off) are completely
+ * unaffected.
  */
 class UseQuoteBillingAddressPlugin
 {
     public function __construct(
         private readonly CheckoutSession $checkoutSession,
         private readonly ResourceConnection $resourceConnection,
+        private readonly ScopeConfigInterface $scopeConfig,
         private readonly LoggerInterface $logger
     ) {
     }
+
+    private const XML_PATH_ENABLED = 'insead_checkout/insead_customcheckout/enabled';
 
     /**
      * @param array<string,mixed> $result
@@ -45,6 +52,29 @@ class UseQuoteBillingAddressPlugin
             if (!$quote || !$quote->getId() || (int) $quote->getData('insead_billing_confirmed') !== 1) {
                 return $result;
             }
+            // Both must be true: the module must currently be enabled for
+            // this store, AND this specific quote must have actually gone
+            // through our Billing Information step. Checking only one isn't
+            // enough — a quote could have insead_billing_confirmed=1 from
+            // before the module was later disabled for this store, or the
+            // module could be enabled while this particular quote's address
+            // is an old one that never touched our form (e.g. already in
+            // the customer's saved address book beforehand). Only when both
+            // are true does anything here — the address override below, and
+            // inseadBillingConfirmed exposed to JS — actually apply.
+            if (!$this->scopeConfig->isSetFlag(self::XML_PATH_ENABLED, ScopeInterface::SCOPE_STORE)) {
+                return $result;
+            }
+            // Exposed as window.checkoutConfig.inseadBillingConfirmed so any
+            // checkout JS (see billing-address-edit-mixin.js) can check the
+            // real per-quote flag directly, rather than inferring it from
+            // the presence of some other block's markup in the DOM. Set here
+            // regardless of whether the address override below succeeds —
+            // this reflects whether the quote went through our Billing
+            // Information step at all, not whether its address happened to
+            // load correctly.
+            $result['inseadBillingConfirmed'] = true;
+
             // The ORM's in-memory billing address object can be stale (loaded before
             // Save.php wrote the B2B data in a prior request but not yet invalidated).
             // Read straight from the DB so we always get the data the customer just submitted.

@@ -9,4 +9,15 @@
         <plugin name="insead_redirect_to_billing_step"
                 type="Insead\CustomCheckout\Plugin\RedirectToBillingStepPlugin"/>
     </type>
+    <type name="Insead\CustomCheckout\Observer\Vat\RestoreQuoteCustomerGroup">
+        <arguments>
+            <argument name="searchCriteriaBuilder" xsi:type="object">Magento\Framework\Api\SearchCriteriaBuilder</argument>
+            <argument name="taxRuleRepository" xsi:type="object">Magento\Tax\Api\TaxRuleRepositoryInterface</argument>
+            <argument name="resourceConnection" xsi:type="object">Magento\Framework\App\ResourceConnection</argument>
+            <argument name="calculationResource" xsi:type="object">Magento\Tax\Model\ResourceModel\Calculation</argument>
+            <argument name="calculation" xsi:type="object">Magento\Tax\Model\Calculation</argument>
+            <argument name="logger" xsi:type="object">Psr\Log\LoggerInterface</argument>
+            <argument name="customerSession" xsi:type="object">Magento\Customer\Model\Session</argument>
+        </arguments>
+    </type>
 </config>

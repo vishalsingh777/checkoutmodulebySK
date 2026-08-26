@@ -9,6 +9,7 @@
             <module name="Magento_Directory"/>
             <module name="Magento_Sales"/>
             <module name="Insead_Checkout"/>
+            <module name="Ewave_CustomerVat"/>
         </sequence>
     </module>
 </config>

@@ -11,13 +11,21 @@
     the design and behavior of the form itself are unchanged; only the URL
     hosting it is new.
 
+    layout="checkout" (not "1column"): this is the SAME stripped-down page
+    layout native /checkout uses — centered logo only, no full site nav/
+    menu/account links/search/minicart baked in, rather than us manually
+    hiding each of those on top of a normal page layout. This is what makes
+    checkout.header.wrapper below exist to reference in the first place, and
+    is why /checkout's own header looks minimal without needing explicit
+    referenceBlock removals for header.links/header_welcome_message/
+    catalogsearch.search/minicart the way a normal 1column page would.
+
     Breadcrumbs, the page title, and the Compare Products sidebar are
-    explicitly removed below — native /checkout excludes these too (it's
-    checkout-specific layout, not the generic page furniture every other
-    page gets), so this page needs to match that to look the same as before.
+    explicitly removed below in case this theme's "checkout" layout still
+    includes them (belt-and-braces; harmless no-op if it already doesn't).
 -->
 <page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      layout="1column"
+      layout="checkout"
       xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
     <head>
         <title>Billing Information</title>
@@ -28,6 +36,31 @@
         <referenceBlock name="page.main.title" remove="true"/>
         <referenceBlock name="catalog.compare.sidebar" remove="true"/>
         <referenceBlock name="right.reports.product.compared" remove="true"/>
+        <!--
+            Defensive: these should already be absent under layout="checkout",
+            same as native /checkout, but kept as harmless no-ops in case
+            this theme's checkout layout still includes any of them.
+        -->
+        <referenceBlock name="header.links" remove="true"/>
+        <referenceBlock name="header_welcome_message" remove="true"/>
+        <referenceBlock name="catalogsearch.search" remove="true"/>
+        <referenceBlock name="minicart" remove="true"/>
+        <!--
+            The "‹ Cancel" link in the header bar, top-left — reusing the
+            EXACT SAME block Ewave_InseadIntegration already adds to native
+            /checkout's own checkout.header.wrapper, for pixel-identical
+            appearance and behavior (including whatever
+            use_callback_failure_url actually does — not owned by this
+            module, so not duplicated/reimplemented here).
+        -->
+        <referenceContainer name="checkout.header.wrapper">
+            <block class="Magento\Framework\View\Element\Template" name="header.cancel.link"
+                   template="Ewave_InseadIntegration::header-link.phtml">
+                <arguments>
+                    <argument name="use_callback_failure_url" xsi:type="boolean">true</argument>
+                </arguments>
+            </block>
+        </referenceContainer>
         <referenceContainer name="content">
             <block name="insead.custom.checkout"
                    class="Insead\CustomCheckout\Block\Checkout"

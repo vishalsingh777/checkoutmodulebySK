@@ -97,15 +97,15 @@ define([
 
     // Dynamic Tax & Legal Information matrix (spec: tax-fields-changelogic md).
     // Each entry maps to a quote column "code"; type: req | opt | file.
-    var DUNS     = {code: 'duns_number',    label: 'D-U-N-S Number (optional)',       type: 'opt',
+    var DUNS     = {code: 'duns_number',    label: 'D-U-N-S Number',                  type: 'opt', configKey: 'duns',
         tooltip: 'A unique nine-digit identifier issued by Dun & Bradstreet used to identify your business globally.'};
     var PO       = {code: 'po_number',      label: 'PO Number',                       type: 'opt',
         tooltip: 'Please check with your procurement/accounting if needed for invoicing.'};
-    var ROUTING  = {code: 'routing_address',label: 'Routing Address',                 type: 'opt',
+    var ROUTING  = {code: 'routing_address',label: 'Routing Address',                 type: 'opt', configKey: 'routing',
         tooltip: 'The address invoices should be routed to within your organisation, if different from the postal address above.'};
-    var TAXREG   = {code: 'tax_id_number',  label: 'Tax Registration Number',         type: 'opt',
+    var TAXREG   = {code: 'tax_id_number',  label: 'Tax Registration Number',         type: 'opt', configKey: 'taxreg',
         tooltip: "Your company's official tax registration number issued by the local tax authority."};
-    var CERT_OPT = {code: 'certificate_id', label: 'Certificate ID',                  type: 'opt',
+    var CERT_OPT = {code: 'certificate_id', label: 'Certificate ID',                  type: 'opt', configKey: 'cert_opt',
         tooltip: 'Reference number of the certificate supporting your tax-exempt status.'};
     var CERT_REQ = {code: 'certificate_id', label: 'Certificate ID',                  type: 'req',
         tooltip: 'Reference number of the certificate supporting your tax-exempt status.'};
@@ -119,9 +119,9 @@ define([
         tooltip: 'Tax Registration Number issued by the UAE Federal Tax Authority.'};
     var EIN      = {code: 'ein',             label: 'EIN',                             type: 'req',
         tooltip: "Your company's Employer Identification Number issued by the US IRS."};
-    var REG_LABEL= {code: 'reg_type_label', label: 'Registration Type',               type: 'opt',
+    var REG_LABEL= {code: 'reg_type_label', label: 'Registration Type',               type: 'opt', configKey: 'reg_type',
         tooltip: 'The type of business registration number your company holds (e.g. EIN, DUNS).'};
-    var REG_VALUE= {code: 'reg_type_value', label: 'Registration Type Value',         type: 'opt',
+    var REG_VALUE= {code: 'reg_type_value', label: 'Registration Type Value',         type: 'opt', configKey: 'reg_type',
         tooltip: 'The value of the registration number selected above.'};
     var VAT_IC   = {code: 'vat_intracommunity', label: 'VAT Intracommunity Number',   type: 'req',
         tooltip: "Your company's Intracommunity VAT number, validated against the EU VIES database."};
@@ -135,17 +135,17 @@ define([
     var fieldDefs = {
         // France: SIRET/SIREN handled separately in Organisation Details.
         // reg_type_label/value are auto-set from SIRET in _collectPayload — not dynamic fields.
-        FR_reg:    [DUNS, VAT_IC,   PO, ROUTING],
+        FR_reg:    [VAT_IC, DUNS,   PO, ROUTING],
         FR_notreg: [DUNS,           PO, ROUTING],
         FR_exempt: [CERT_REQ, DUNS, PO, ROUTING, UPLOAD_REQ],
 
-        SG_reg:    [UEN_SG, DUNS, GST_NUM, PO],
+        SG_reg:    [UEN_SG, GST_NUM, DUNS, PO],
         SG_notreg: [UEN_SG, DUNS,          PO],
         SG_exempt: [CERT_REQ, DUNS,        PO, UPLOAD_REQ],
 
         // UAE has only Reg and Not-Reg (no Exempt option per spec).
         // Business Registration Number (BRN) required for UAE per spec.
-        UAE_reg:    [TRN, DUNS, VATUAE, PO],
+        UAE_reg:    [TRN, VATUAE, DUNS, PO],
         UAE_notreg: [TRN, DUNS,         PO],
         UAE_exempt: [CERT_REQ, DUNS,        PO, ROUTING],   // unreachable; no UPLOAD per spec
 
@@ -157,7 +157,7 @@ define([
         // Business Registration Number (BRN) required for EU per spec, alongside VAT-IC.
         // EU_reg drops Routing Address/Registration Type/Registration Type
         // Value/Certificate ID — not applicable once the company is Tax Registered.
-        EU_reg:    [UEN_GEN, DUNS, VAT_IC, PO],
+        EU_reg:    [UEN_GEN, VAT_IC, DUNS, PO],
         EU_notreg: [UEN_GEN, DUNS,         PO, ROUTING, REG_LABEL, REG_VALUE, CERT_OPT],
         EU_exempt: [CERT_REQ, DUNS, PO, ROUTING],            // unreachable; no UPLOAD per spec
 
@@ -235,6 +235,9 @@ define([
             showGenderFieldB2b: true,
             showNationalityFieldB2c: true,
             showNationalityFieldB2b: true,
+            showPhoneFieldB2c: true,
+            showPhoneFieldB2b: true,
+            showOptionalTaxFields: {},
             phoneRequiredB2c: true,
             phoneRequiredB2b: false,
             urls: {},
@@ -278,6 +281,9 @@ define([
             this.showGenderFieldB2b = !!this.showGenderFieldB2b;
             this.showNationalityFieldB2c = !!this.showNationalityFieldB2c;
             this.showNationalityFieldB2b = !!this.showNationalityFieldB2b;
+            this.showPhoneFieldB2c = !!this.showPhoneFieldB2c;
+            this.showPhoneFieldB2b = !!this.showPhoneFieldB2b;
+            this.showOptionalTaxFields = this.showOptionalTaxFields || {};
             this.phoneRequiredB2c = !!this.phoneRequiredB2c;
             this.phoneRequiredB2b = !!this.phoneRequiredB2b;
 
@@ -286,16 +292,28 @@ define([
             this._peoplesoftId = pf.peoplesoft_id || '';
 
             // Billing-address identity (name/email). Supplied by the upstream
-            // flow and not shown for Self-funded; used server-side for the address.
-            this.customerFirstName = pf.firstname || customer.firstname || '';
-            this.customerLastName = pf.lastname || customer.lastname || '';
+            // flow. Name is editable for B2B (see the field-visibility note
+            // near the country subscription below for how this stays in
+            // sync with Invoice Recipient); email stays locked, so it
+            // remains a plain value rather than an observable.
+            this.customerFirstName = ko.observable(pf.firstname || customer.firstname || '');
+            this.customerLastName = ko.observable(pf.lastname || customer.lastname || '');
             this.customerEmail = pf.email || customer.email || '';
             // Phone pre-fills from the upstream flow but is editable for B2B.
             this.customerTelephone = ko.observable(pf.telephone || '');
 
             // ---- Selector box ----
             this.country = ko.observable(pf.country_id || 'FR'); // ISO code
-            this.financingProfile = ko.observable(pf.is_btob ? 'b2b' : 'b2c'); // b2c = Self-funded
+            // Strict === 1, matching Block\Checkout.php's exact contract for
+            // this flag (which gates two DIFFERENT server-side prefill
+            // paths — B2B company-address backfill vs B2C personal-address
+            // backfill). A truthy check here previously treated is_btob=2
+            // the same as is_btob=1 (both truthy), while PHP's own === 1 /
+            // !== 1 checks treated them as opposites — meaning the same
+            // quote could show as B2B on the frontend while PHP silently
+            // prefilled it via the B2C path instead, sourcing completely
+            // different data than what the B2B section actually needed.
+            this.financingProfile = ko.observable(pf.is_btob === 1 ? 'b2b' : 'b2c'); // b2c = Self-funded
             this.taxStatus = ko.observable(
                 taxStatuses.indexOf(pf.tax_registration_status) !== -1 ? pf.tax_registration_status : 'reg'
             );
@@ -320,6 +338,59 @@ define([
             // ---- B2B (Sponsored) — Organisation details ----
             this.invoiceFirstName = ko.observable(pf.invoice_recipient_firstname || pf.firstname || '');
             this.invoiceLastName = ko.observable(pf.invoice_recipient_lastname || pf.lastname || '');
+
+            // Invoice Recipient defaults to (and stays live-synced with) the
+            // First/Last Name fields above — until the customer explicitly
+            // edits Invoice Recipient themselves, at which point that's
+            // treated as a deliberate "different person" choice and sync
+            // stops for that field. If the prefill already shows a
+            // different invoice recipient name than the applicant's own
+            // name, that's also respected as already-deliberately-different
+            // from the start, not overwritten.
+            var invoiceFirstNameTouched = !!(
+                pf.invoice_recipient_firstname && pf.invoice_recipient_firstname !== pf.firstname
+            );
+            var invoiceLastNameTouched = !!(
+                pf.invoice_recipient_lastname && pf.invoice_recipient_lastname !== pf.lastname
+            );
+            var syncingInvoiceName = false;
+            var self = this; // not declared elsewhere in this method — only _initComputed/_initSubscriptions have their own
+
+            // subscribe() below only fires on FUTURE changes to
+            // customerFirstName/customerLastName — it does NOT fire for the
+            // value those observables already hold at this point (e.g.
+            // arriving pre-filled from Save.php/APOL data with nothing
+            // retyped). Without this explicit initial sync, a pre-filled
+            // "Test"/"Test" applicant name would leave Invoice Recipient
+            // blank forever, since no change event ever occurs to trigger
+            // the subscription — confirmed exactly this way in testing.
+            if (!invoiceFirstNameTouched) {
+                this.invoiceFirstName(this.customerFirstName());
+            }
+            if (!invoiceLastNameTouched) {
+                this.invoiceLastName(this.customerLastName());
+            }
+
+            this.customerFirstName.subscribe(function (val) {
+                if (!invoiceFirstNameTouched) {
+                    syncingInvoiceName = true;
+                    self.invoiceFirstName(val);
+                    syncingInvoiceName = false;
+                }
+            });
+            this.customerLastName.subscribe(function (val) {
+                if (!invoiceLastNameTouched) {
+                    syncingInvoiceName = true;
+                    self.invoiceLastName(val);
+                    syncingInvoiceName = false;
+                }
+            });
+            this.invoiceFirstName.subscribe(function () {
+                if (!syncingInvoiceName) { invoiceFirstNameTouched = true; }
+            });
+            this.invoiceLastName.subscribe(function () {
+                if (!syncingInvoiceName) { invoiceLastNameTouched = true; }
+            });
             this.invoiceEmail = ko.observable(pf.invoice_email || pf.email || '');
             this.companyLegalName = ko.observable(pf.company_legal_name || pf.company || '');
             this.companyTradeName = ko.observable(pf.commercial_company_name || '');
@@ -355,7 +426,7 @@ define([
             // maps to SIRET in Organisation Details, not Tax & Legal).
             var seed = {
                 vat_intracommunity: pf.vat_intracommunity, gst_number: pf.gst_number,
-                vat_uae: pf.vat_uae,
+                vat_uae: pf.vat_uae, trn: pf.trn, ein: pf.ein,
                 tax_id_number: pf.tax_id_number, certificate_id: pf.certificate_id,
                 duns_number: pf.duns_number, routing_address: pf.routing_address,
                 po_number: pf.po_number,
@@ -441,6 +512,25 @@ define([
                 // VAT validity is country-dependent (VIES checks the number
                 // against the given country code) — re-check on country change.
                 self._scheduleVatValidation();
+                // The Company Legal Name field, and everything else INSEE's
+                // SIRET lookup (lookupCompany) can auto-fill, only makes
+                // sense for France. If the shopper leaves France, clear the
+                // SIRET number itself along with every field it populated —
+                // so returning to France later starts clean and requires a
+                // fresh SIRET entry/lookup, rather than silently keeping
+                // data from what may have been a different company.
+                if (!self.isFrance()) {
+                    self.isCompanyNameAuto(false);
+                    self.siret('');
+                    self.siretStatus('idle');
+                    self.siretMessage('');
+                    self.companyLegalName('');
+                    self.companyTradeName('');
+                    self.companyStreet1('');
+                    self.companyStreet2('');
+                    self.companyCity('');
+                    self.companyZip('');
+                }
             });
             this.taxStatus.subscribe(function () {
                 self.globalError('');
@@ -478,10 +568,10 @@ define([
             // cleared when filled in (see _liveValidate for why this is
             // scoped to Phone rather than every field).
             self._liveValidate(this.b2cPhone, 'b2cPhone', {
-                isRequired: function () { return self.phoneRequiredB2c; }
+                isRequired: function () { return self.showPhoneFieldB2c && self.phoneRequiredB2c; }
             });
             self._liveValidate(this.customerTelephone, 'customerTelephone', {
-                isRequired: function () { return self.phoneRequiredB2b; }
+                isRequired: function () { return self.showPhoneFieldB2b && self.phoneRequiredB2b; }
             });
         },
 
@@ -581,7 +671,16 @@ define([
                 return; // subscription re-triggers renderFields
             }
 
-            var defs = fieldDefs[group + '_' + this.taxStatus()] || [];
+            var defs = (fieldDefs[group + '_' + this.taxStatus()] || []).filter(function (def) {
+                return !def.configKey || self.showOptionalTaxFields[def.configKey];
+            });
+
+            // PO Number must be available for every Tax Status in B2B.
+            // Keep it visible even if a specific matrix row or config omits it.
+            if (this.isB2B() && !defs.some(function (def) { return def.code === 'po_number'; })) {
+                defs.push(PO);
+            }
+
             this.dynamicFields(defs.map(function (def) {
                 return {
                     code: def.code,
@@ -651,35 +750,65 @@ define([
             this.vatStatus('checking');
             this.vatMessage('');
             this._vatTimer = setTimeout(function () {
-                var requestedValue = value;
-                var requestedCountry = self.country();
-                $.ajax({
-                    url: self.endpointUrls.validateVat, method: 'POST', dataType: 'json',
-                    data: {form_key: self._currentFormKey(), country_id: requestedCountry, vat_number: requestedValue}
-                }).done(function (res) {
-                    // Stale response (value/country changed while the request was
-                    // in flight) — a fresher request already superseded this one.
-                    if (requestedValue !== self.valueFor('vat_intracommunity')() || requestedCountry !== self.country()) {
-                        return;
-                    }
-                    if (!res || !res.success || res.valid === null || res.valid === undefined) {
-                        self.vatStatus('unknown');
-                        self.vatMessage((res && res.message) || $t('Unable to verify the VAT number right now.'));
-                    } else if (res.valid) {
-                        self.vatStatus('valid');
-                        self.vatMessage(res.message || $t('VAT number is valid.'));
-                    } else {
-                        self.vatStatus('invalid');
-                        self.vatMessage(res.message || $t('VAT number is not valid.'));
-                    }
-                }).fail(function () {
-                    if (requestedValue !== self.valueFor('vat_intracommunity')() || requestedCountry !== self.country()) {
-                        return;
-                    }
-                    self.vatStatus('unknown');
-                    self.vatMessage($t('Unable to verify the VAT number right now.'));
-                });
+                self._checkVat(value, self.country(), true);
             }, 600);
+        },
+
+        /**
+         * VIES (the EU's VAT verification service) is well known to fail
+         * transiently on individual lookups — "Error during VAT Number
+         * verification" and similar are VIES's OWN error text (surfaced
+         * as-is via res.message), not something our code produces, and
+         * retrying the exact same number moments later routinely succeeds.
+         * That's a VIES infrastructure quirk, not a real "invalid" or
+         * "unknown" result, so one silent automatic retry happens here
+         * before showing anything to the customer — matching the pattern
+         * reported: fails once, works immediately on the same input.
+         *
+         * allowRetry defaults to true; the retry call passes false so this
+         * can never loop, and only ever retries once per lookup.
+         */
+        _checkVat: function (requestedValue, requestedCountry, allowRetry) {
+            var self = this;
+            $.ajax({
+                url: self.endpointUrls.validateVat, method: 'POST', dataType: 'json',
+                data: {form_key: self._currentFormKey(), country_id: requestedCountry, vat_number: requestedValue}
+            }).done(function (res) {
+                // Stale response (value/country changed while the request was
+                // in flight) — a fresher request already superseded this one.
+                if (requestedValue !== self.valueFor('vat_intracommunity')() || requestedCountry !== self.country()) {
+                    return;
+                }
+                var viesTransientFailure = res && res.success && res.valid === null;
+                if (viesTransientFailure && allowRetry) {
+                    setTimeout(function () {
+                        self._checkVat(requestedValue, requestedCountry, false);
+                    }, 800);
+                    return;
+                }
+                if (!res || !res.success || res.valid === null || res.valid === undefined) {
+                    self.vatStatus('unknown');
+                    self.vatMessage((res && res.message) || $t('Unable to verify the VAT number right now.'));
+                } else if (res.valid) {
+                    self.vatStatus('valid');
+                    self.vatMessage(res.message || $t('VAT number is valid.'));
+                } else {
+                    self.vatStatus('invalid');
+                    self.vatMessage(res.message || $t('VAT number is not valid.'));
+                }
+            }).fail(function () {
+                if (requestedValue !== self.valueFor('vat_intracommunity')() || requestedCountry !== self.country()) {
+                    return;
+                }
+                if (allowRetry) {
+                    setTimeout(function () {
+                        self._checkVat(requestedValue, requestedCountry, false);
+                    }, 800);
+                    return;
+                }
+                self.vatStatus('unknown');
+                self.vatMessage($t('Unable to verify the VAT number right now.'));
+            });
         },
 
         /**
@@ -796,19 +925,22 @@ define([
                 if (!this.b2cLastName()) { errs.b2cLastName = true; }
                 if (this.b2cEmail() && !emailRe.test(this.b2cEmail())) { errs.b2cEmail = true; }
                 if (this.showGenderFieldB2c && !this.gender()) { errs.gender = true; }
-                if (this.phoneRequiredB2c && !this.b2cPhone()) { errs.b2cPhone = true; }
+                if (this.showPhoneFieldB2c && this.phoneRequiredB2c && !this.b2cPhone()) { errs.b2cPhone = true; }
                 if (this.showNationalityFieldB2c && !this.nationality()) { errs.nationality = true; }
                 if (!this.street1()) { errs.street1 = true; }
                 if (!this.city()) { errs.city = true; }
+                if (!this.postcode()) { errs.postcode = true; }
                 if (this.showResidencyDeclaration() && !this.residencyDeclaration()) {
                     errs.residencyDeclaration = true;
                 }
             } else {
+                if (!this.customerFirstName()) { errs.customerFirstName = true; }
+                if (!this.customerLastName()) { errs.customerLastName = true; }
                 if (!this.invoiceFirstName()) { errs.invoiceFirstName = true; }
                 if (!this.invoiceLastName()) { errs.invoiceLastName = true; }
                 if (!this.invoiceEmail() || !emailRe.test(this.invoiceEmail())) { errs.invoiceEmail = true; }
                 if (this.showGenderFieldB2b && !this.gender()) { errs.gender = true; }
-                if (this.phoneRequiredB2b && !this.customerTelephone()) { errs.customerTelephone = true; }
+                if (this.showPhoneFieldB2b && this.phoneRequiredB2b && !this.customerTelephone()) { errs.customerTelephone = true; }
                 if (this.showNationalityFieldB2b && !this.nationality()) { errs.nationality = true; }
                 if (!this.companyLegalName()) { errs.companyLegalName = true; }
                 // companyTradeName (Commercial Company Name) is optional per spec
@@ -816,6 +948,7 @@ define([
                 if (!this.jobIndustry()) { errs.jobIndustry = true; }
                 if (!this.companyStreet1()) { errs.companyStreet1 = true; }
                 if (!this.companyCity()) { errs.companyCity = true; }
+                if (!this.companyZip()) { errs.companyZip = true; }
                 if (this.isFrance() && !isValidSiret(this.siret())) { errs.siret = true; }
                 this.dynamicFields().forEach(function (f) {
                     if (f.required && !f.value()) { errs['dyn_' + f.code] = true; }
@@ -923,6 +1056,30 @@ define([
                 this.dynamicFields().forEach(function (f) {
                     data[f.code] = (f.isFile && paths[f.code]) ? paths[f.code] : f.value();
                 });
+
+                // Also mirror UAE's TRN and US's EIN into `uen` — same idea as
+                // France's SIRET above, so `uen` becomes a consistent "business
+                // registration number, whatever this country calls it" column
+                // across every country, not just some. reg_type_label/value
+                // record which one it actually is, so `uen` is self-documenting
+                // here too rather than needing country_id to interpret it.
+                // Read from data.trn/data.ein (already correctly blanked/filled
+                // by the two steps above) rather than the raw observables, so a
+                // leftover TRN/EIN value from an earlier country/tax-status
+                // selection never leaks into `uen` after switching away from it.
+                if (data.trn) {
+                    data.uen = data.trn;
+                    data.reg_type_label = 'TRN';
+                    data.reg_type_value = data.trn;
+                } else if (data.ein) {
+                    data.uen = data.ein;
+                    data.reg_type_label = 'EIN';
+                    data.reg_type_value = data.ein;
+                } else if (!data.uen && data.certificate_id) { // don't override France's SIRET if already set above
+                    data.uen = data.certificate_id;
+                    data.reg_type_label = 'certificate id';
+                    data.reg_type_value = data.certificate_id;
+                }
             }
 
             return data;
@@ -987,22 +1144,6 @@ define([
                 self.isLoading(false);
                 self.globalError((typeof err === 'string' && err)
                     || $t('Unable to save billing data. Please try again.'));
-            });
-        },
-
-        /** "Save" (without advancing): persist Billing Information silently. */
-        saveBilling: function () {
-            var self = this;
-            this.globalError('');
-            this._uploadPendingFiles().then(function () {
-                return self._postBilling();
-            }).done(function (res) {
-                if (!res || !res.success) {
-                    self.globalError((res && res.message) || $t('Unable to save billing data.'));
-                }
-            }).fail(function (err) {
-                self.globalError((typeof err === 'string' && err)
-                    || $t('Unable to upload the file. Please try again.'));
             });
         }
     });

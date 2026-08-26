@@ -32,11 +32,11 @@
                 </div>
                 <div class="field">
                     <label>Billing Profile
-                        <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Choose whether you are paying for yourself (Self-funded) or your registration is being paid for by your employer or another organisation (Sponsored by Organisation).</span></span>
+                        <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">Select Personal Address for personal orders, or Company Address if this order is being paid for or invoiced to your organisation.</span></span>
                     </label>
                     <select data-bind="value: financingProfile">
-                        <option value="b2c">Self-funded</option>
-                        <option value="b2b">Sponsored by Organisation</option>
+                        <option value="b2c">Personal Address</option>
+                        <option value="b2b">Company Address</option>
                     </select>
                 </div>
                 <!-- ko if: showTaxStatus -->
@@ -67,7 +67,7 @@
                 <div class="field-row two-col">
                     <div class="field" data-bind="css: {'_error': hasError('b2cEmail'), '_full': !showGenderFieldB2c}">
                         <label>Email address</label>
-                        <input type="email" placeholder="test.sample@example.com" data-bind="value: b2cEmail, valueUpdate: 'input'"/>
+                        <input type="email" placeholder="test.sample@example.com" data-bind="value: b2cEmail, valueUpdate: 'input', disable: isLoggedIn"/>
                     </div>
                     <!-- ko if: showGenderFieldB2c -->
                     <div class="field" data-bind="css: {'_error': hasError('gender')}">
@@ -78,12 +78,14 @@
                     <!-- /ko -->
                 </div>
                 <div class="field-row two-col">
-                    <div class="field" data-bind="css: {'_error': hasError('b2cPhone'), '_full': !showNationalityFieldB2c}">
+                    <!-- ko if: showPhoneFieldB2c -->
+                    <div class="field" data-bind="css: {'_error': hasError('b2cPhone')}">
                         <label>Phone <!-- ko if: phoneRequiredB2c --><span class="req">*</span><!-- /ko --></label>
                         <input type="text" placeholder="+33 6 12 34 56 78" data-bind="value: b2cPhone, valueUpdate: 'input'"/>
                     </div>
+                    <!-- /ko -->
                     <!-- ko if: showNationalityFieldB2c -->
-                    <div class="field" data-bind="css: {'_error': hasError('nationality')}">
+                    <div class="field" data-bind="css: {'_error': hasError('nationality'), '_full': !showPhoneFieldB2c}">
                         <label>Nationality <span class="req">*</span></label>
                         <select data-bind="options: countriesList, optionsValue: 'value', optionsText: 'label',
                                            optionsCaption: 'Select an Option', value: nationality"></select>
@@ -115,8 +117,8 @@
                         <input type="text" data-bind="value: region"/>
                         <!-- /ko -->
                     </div>
-                    <div class="field">
-                        <label>Zip / Postal Code</label>
+                    <div class="field" data-bind="css: {'_error': hasError('postcode')}">
+                        <label>Zip / Postal Code <span class="req">*</span></label>
                         <input type="text" data-bind="value: postcode"/>
                     </div>
                 </div>
@@ -148,13 +150,13 @@
 
                 <!-- Personal details (prefilled from application step) -->
                 <div class="field-row two-col">
-                    <div class="field">
+                    <div class="field" data-bind="css: {'_error': hasError('customerFirstName')}">
                         <label>First Name <span class="req">*</span></label>
-                        <input type="text" disabled data-bind="value: customerFirstName"/>
+                        <input type="text" data-bind="value: customerFirstName, valueUpdate: 'input'"/>
                     </div>
-                    <div class="field">
+                    <div class="field" data-bind="css: {'_error': hasError('customerLastName')}">
                         <label>Last Name <span class="req">*</span></label>
-                        <input type="text" disabled data-bind="value: customerLastName"/>
+                        <input type="text" data-bind="value: customerLastName, valueUpdate: 'input'"/>
                     </div>
                 </div>
                 <div class="field-row two-col">
@@ -171,12 +173,14 @@
                     <!-- /ko -->
                 </div>
                 <div class="field-row two-col">
-                    <div class="field" data-bind="css: {'_error': hasError('customerTelephone'), '_full': !showNationalityFieldB2b}">
+                    <!-- ko if: showPhoneFieldB2b -->
+                    <div class="field" data-bind="css: {'_error': hasError('customerTelephone')}">
                         <label>Phone <!-- ko if: phoneRequiredB2b --><span class="req">*</span><!-- /ko --></label>
                         <input type="text" data-bind="value: customerTelephone, valueUpdate: 'input'"/>
                     </div>
+                    <!-- /ko -->
                     <!-- ko if: showNationalityFieldB2b -->
-                    <div class="field" data-bind="css: {'_error': hasError('nationality')}">
+                    <div class="field" data-bind="css: {'_error': hasError('nationality'), '_full': !showPhoneFieldB2b}">
                         <label>Nationality <span class="req">*</span></label>
                         <select data-bind="options: countriesList, optionsValue: 'value', optionsText: 'label',
                                            optionsCaption: 'Select an Option', value: nationality"></select>
@@ -287,8 +291,8 @@
                         <input type="text" data-bind="value: companyState"/>
                         <!-- /ko -->
                     </div>
-                    <div class="field">
-                        <label>Company Zip / Postal Code</label>
+                    <div class="field" data-bind="css: {'_error': hasError('companyZip')}">
+                        <label>Company Zip / Postal Code <span class="req">*</span></label>
                         <input type="text" data-bind="value: companyZip"/>
                     </div>
                 </div>
@@ -340,7 +344,6 @@
         <div class="insead-actions">
             <a class="insead-link" data-bind="attr: {href: endpointUrls.cart}">Back</a>
             <span class="insead-actions__right">
-                <a class="insead-link" data-bind="click: saveBilling">Save</a>
                 <!-- Redirects to native Magento checkout for payment on success —
                      see Controller\Billing\Save and Observer\AddCustomCheckoutLayoutHandle.
                      Order summary and discount code are shown there by native

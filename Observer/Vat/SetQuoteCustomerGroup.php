@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Insead\CustomCheckout\Observer\Vat;
 
+use Ewave\CustomerVat\Helper\CustomVatConfigInterface;
 use Insead\CustomCheckout\Model\Vat\CustomerGroupResolver;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
@@ -52,6 +53,13 @@ class SetQuoteCustomerGroup implements ObserverInterface
         }
         if ($this->scopeConfig->isSetFlag(
             'insead_checkout/gst_group/enabled',
+            ScopeInterface::SCOPE_STORE,
+            $quote->getStoreId()
+        )) {
+            return;
+        }
+        if (!$this->scopeConfig->isSetFlag(
+            'insead_checkout/insead_customcheckout/enabled',
             ScopeInterface::SCOPE_STORE,
             $quote->getStoreId()
         )) {

@@ -4,16 +4,26 @@
     <default>
         <insead_checkout>
             <insead_customcheckout>
-                <!-- On by default; enable per website / store view as needed. -->
-                <enabled>1</enabled>
-                <!-- Shown by default for both profiles; remove a profile per
-                     website / store view as needed. -->
-                <show_gender_field>b2c,b2b</show_gender_field>
-                <show_nationality_field>b2c,b2b</show_nationality_field>
+                <!-- Off by default; enable per website / store view as needed. -->
+                <enabled>0</enabled>
+                <!-- Hidden by default for both profiles; add b2c and/or b2b
+                     per website / store view to show. -->
+                <show_gender_field></show_gender_field>
+                <show_nationality_field></show_nationality_field>
+                <show_phone_field></show_phone_field>
                 <!-- Matches current behavior out of the box: required for
                      Self-funded (B2C) only. Add b2b per website / store view
-                     to also require it for Sponsored by Organisation. -->
+                     to also require it for Sponsored by Organisation. Has no
+                     effect for a profile where show_phone_field above doesn't
+                     include it — a hidden field is never required.
+                -->
                 <phone_required>b2c</phone_required>
+                <!-- Hidden by default (mandatory Tax & Legal fields + PO
+                     Number always show regardless of this setting; only
+                     these optional ones are affected). Add duns, routing,
+                     taxreg, cert_opt, and/or reg_type per website / store
+                     view to show any of them. -->
+                <show_optional_tax_fields></show_optional_tax_fields>
             </insead_customcheckout>
             <insee_lookup>
                 <!-- Off by default until an API key is configured. -->

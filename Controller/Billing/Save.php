@@ -32,7 +32,7 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
     private const ALLOWED_COLUMNS = [
         'financing_profile', 'tax_registration_status', 'company_legal_name',
         'commercial_company_name', 'organization_type',
-        'uen', 'vat_intracommunity', 'vat_uae', 'trn', 'ein', 'gst_number', 'tax_id_number',
+        'uen', 'vat_intracommunity', 'vat_uae', 'gst_number', 'tax_id_number',
         'certificate_id', 'duns_number', 'routing_address', 'tax_exempt_file',
         'invoice_recipient_firstname', 'invoice_recipient_lastname', 'invoice_email',
         'reg_type_label', 'reg_type_value', 'gender', 'nationality', 'po_number',
@@ -100,7 +100,7 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
             $street2 = $posted('street2') ?: (string) ($existingStreet[1] ?? '');
             $city    = $posted('city') ?: (string) $billing->getCity() ?: 'N/A';
             $region  = $posted('region') ?: (string) $billing->getRegion();
-            $postcode = $posted('postcode') ?: (string) $billing->getPostcode() ?: '00000';
+            $postcode = $posted('postcode') ?: (string) $billing->getPostcode() ?: '';
             $countryId = $posted('country_id') ?: (string) $billing->getCountryId() ?: 'FR';
 
             $billing->addData([

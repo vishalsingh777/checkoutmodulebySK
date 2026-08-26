@@ -26,11 +26,23 @@
                     <source_model>Insead\CustomCheckout\Model\Config\Source\Profile</source_model>
                     <comment>Show the Nationality field on the Billing Information step, per profile. Configurable per website / store view.</comment>
                 </field>
+                <field id="show_phone_field" translate="label comment" type="multiselect" sortOrder="65"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Phone Field</label>
+                    <source_model>Insead\CustomCheckout\Model\Config\Source\Profile</source_model>
+                    <comment>Show the Phone field on the Billing Information step, per profile. If a profile is unchecked here, the "Phone Required" setting below has no effect for it — a hidden field is never required. Configurable per website / store view.</comment>
+                </field>
                 <field id="phone_required" translate="label comment" type="multiselect" sortOrder="70"
                        showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Phone Required</label>
                     <source_model>Insead\CustomCheckout\Model\Config\Source\Profile</source_model>
                     <comment>Whether the Phone field is mandatory on the Billing Information step, per profile. Unchecked = optional for that profile. Configurable per website / store view.</comment>
+                </field>
+                <field id="show_optional_tax_fields" translate="label comment" type="multiselect" sortOrder="80"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Show Optional Tax &amp; Legal Fields</label>
+                    <source_model>Insead\CustomCheckout\Model\Config\Source\OptionalTaxField</source_model>
+                    <comment>Which OPTIONAL Tax &amp; Legal Information fields to show, across every country/tax-status combination they'd otherwise appear in. Unchecked by default — only mandatory fields and PO Number show out of the box. Mandatory fields (marked with *) are never affected by this setting; they always show. Configurable per website / store view.</comment>
                 </field>
             </group>
             <group id="vat_group" translate="label" type="text" sortOrder="1005"

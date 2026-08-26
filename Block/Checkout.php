@@ -75,8 +75,17 @@ class Checkout extends Template
             'showGenderFieldB2b'      => $this->isGenderFieldEnabled('b2b'),
             'showNationalityFieldB2c' => $this->isNationalityFieldEnabled('b2c'),
             'showNationalityFieldB2b' => $this->isNationalityFieldEnabled('b2b'),
+            'showPhoneFieldB2c'       => $this->isPhoneFieldEnabled('b2c'),
+            'showPhoneFieldB2b'       => $this->isPhoneFieldEnabled('b2b'),
             'phoneRequiredB2c'        => $this->isPhoneRequired('b2c'),
             'phoneRequiredB2b'        => $this->isPhoneRequired('b2b'),
+            'showOptionalTaxFields' => [
+                'duns'     => $this->isOptionalTaxFieldEnabled('duns'),
+                'routing'  => $this->isOptionalTaxFieldEnabled('routing'),
+                'taxreg'   => $this->isOptionalTaxFieldEnabled('taxreg'),
+                'cert_opt' => $this->isOptionalTaxFieldEnabled('cert_opt'),
+                'reg_type' => $this->isOptionalTaxFieldEnabled('reg_type'),
+            ],
             'formKey'             => $this->formKey->getFormKey(),
             'urls'                => [
                 'lookup'      => $this->getUrl('insead_checkout/company/lookup'),
@@ -277,15 +286,55 @@ class Checkout extends Template
                             $data[$prefillKey] = $val($companyAddress[$addrField]);
                         }
                     }
-                    // Company address may have no phone; fall back to the buyer's
-                    // personal Magento default billing address phone so the field
-                    // is not blank for B2B customers who have a phone on their account.
-                    if (($data['telephone'] ?? '') === '') {
+                    // Company address may have nothing at all saved yet
+                    // (brand-new company, no row in insead_company_address)
+                    // — fall back to the buyer's own personal Magento
+                    // default billing address for whichever fields are
+                    // still empty, same source the B2C branch below uses.
+                    // Covers name, phone, AND address (street/city/region/
+                    // postcode/country) — a first-time B2B company with no
+                    // saved address previously left ALL of these blank
+                    // instead of falling back to something reasonable.
+                    $stillEmpty = static function (array $data, array $keys): bool {
+                        foreach ($keys as $key) {
+                            if (($data[$key] ?? '') === '') {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+                    if ($stillEmpty($data, [
+                        'firstname', 'lastname', 'telephone',
+                        'street1', 'street2', 'city', 'region', 'postcode', 'country_id',
+                    ])) {
                         $defaultBilling = $this->customerSession->getCustomer()->getDefaultBillingAddress();
                         if ($defaultBilling && $defaultBilling->getId()) {
-                            $personalPhone = (string) $defaultBilling->getTelephone();
-                            if ($personalPhone !== '' && $personalPhone !== '0000000000') {
-                                $data['telephone'] = $personalPhone;
+                            if (($data['firstname'] ?? '') === '') {
+                                $data['firstname'] = $val($defaultBilling->getFirstname());
+                            }
+                            if (($data['lastname'] ?? '') === '') {
+                                $data['lastname'] = $val($defaultBilling->getLastname());
+                            }
+                            if (($data['telephone'] ?? '') === '') {
+                                $personalPhone = (string) $defaultBilling->getTelephone();
+                                if ($personalPhone !== '' && $personalPhone !== '0000000000') {
+                                    $data['telephone'] = $personalPhone;
+                                }
+                            }
+                            $cStreet = $defaultBilling->getStreet();
+                            $cStreet = is_array($cStreet) ? $cStreet : [];
+                            $addressFallback = [
+                                'street1'    => $cStreet[0] ?? '',
+                                'street2'    => $cStreet[1] ?? '',
+                                'city'       => $defaultBilling->getCity(),
+                                'region'     => $defaultBilling->getRegionCode() ?: $defaultBilling->getRegion(),
+                                'postcode'   => $defaultBilling->getPostcode(),
+                                'country_id' => $defaultBilling->getCountryId(),
+                            ];
+                            foreach ($addressFallback as $prefillKey => $value) {
+                                if (($data[$prefillKey] ?? '') === '') {
+                                    $data[$prefillKey] = $val($value);
+                                }
                             }
                         }
                     }
@@ -376,10 +425,33 @@ class Checkout extends Template
         return $this->isProfileFlagEnabled('show_nationality_field', $profile);
     }
 
+    /** Whether the Phone field is shown on the Billing Information step for the given profile. */
+    private function isPhoneFieldEnabled(string $profile): bool
+    {
+        return $this->isProfileFlagEnabled('show_phone_field', $profile);
+    }
+
     /** Whether Phone is mandatory on the Billing Information step for the given profile. */
     private function isPhoneRequired(string $profile): bool
     {
         return $this->isProfileFlagEnabled('phone_required', $profile);
+    }
+
+    /**
+     * True if $field (e.g. 'duns', 'routing') is one of the checked options
+     * in insead_checkout/insead_customcheckout/show_optional_tax_fields —
+     * same comma-separated-multiselect mechanic as isProfileFlagEnabled,
+     * just checking a field key instead of a b2c/b2b profile. See
+     * Model\Config\Source\OptionalTaxField for the full option list.
+     */
+    private function isOptionalTaxFieldEnabled(string $field): bool
+    {
+        $raw = (string) $this->scopeConfig->getValue(
+            'insead_checkout/insead_customcheckout/show_optional_tax_fields',
+            ScopeInterface::SCOPE_STORE
+        );
+
+        return in_array($field, array_filter(array_map('trim', explode(',', $raw))), true);
     }
 
     /**
