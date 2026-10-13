@@ -36,6 +36,9 @@
                 <organization_type_required>1</organization_type_required>
                 <show_job_industry>1</show_job_industry>
                 <job_industry_required>1</job_industry_required>
+                <!-- UAE only. Matches current behavior: shown, required. -->
+                <show_trn>1</show_trn>
+                <trn_required>1</trn_required>
             </insead_customcheckout>
             <insee_lookup>
                 <!-- Off by default until an API key is configured. -->

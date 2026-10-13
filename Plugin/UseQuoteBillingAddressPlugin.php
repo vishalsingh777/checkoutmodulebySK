@@ -74,6 +74,17 @@ class UseQuoteBillingAddressPlugin
             // Information step at all, not whether its address happened to
             // load correctly.
             $result['inseadBillingConfirmed'] = true;
+            // The customer's FINAL B2C/B2B choice, as actually saved by
+            // Controller\Billing\Save — not the raw upstream is_btob value,
+            // which only reflects the Cart page's ORIGINAL determination and
+            // has no way to know the customer changed it on our Billing
+            // Information step (financing_profile is editable there; is_btob
+            // is a static snapshot from before that page even loaded).
+            // Exposed specifically so other checkout JS checking B2B status
+            // (e.g. a payment-method mixin validating "company required for
+            // B2B") can check the customer's real final choice instead of a
+            // stale value — see default-mixin.js in Ewave_LegoBaseTheme.
+            $result['inseadFinancingProfile'] = (string) $quote->getData('financing_profile');
 
             // The ORM's in-memory billing address object can be stale (loaded before
             // Save.php wrote the B2B data in a prior request but not yet invalidated).

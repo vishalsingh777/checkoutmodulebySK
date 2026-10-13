@@ -8,8 +8,11 @@ use Magento\Framework\App\ResourceConnection;
 /**
  * Saved-company reuse for the B2B (Sponsored) checkout. Persists and reads the
  * customer -> company link (insead_company_customer) and the company's default
- * billing address (insead_company_address), so a returning logged-in customer
- * gets their company address pre-filled.
+ * billing address (insead_company_address) — plus Organisation Type, which
+ * rides along in the same table/row even though it isn't strictly an address
+ * field, since it's remembered and reused via the exact same mechanism — so a
+ * returning logged-in customer gets their company address AND Organisation
+ * Type pre-filled.
  *
  * The company master is insead_mg_organization, keyed by organization_system_id
  * (= the customer_id for a checkout-created company). The link table formalises
@@ -22,7 +25,7 @@ class CompanyProfile
 
     /** insead_company_address columns we read/write (excludes keys/timestamps). */
     private const ADDRESS_FIELDS = [
-        'firstname', 'lastname', 'email', 'company',
+        'firstname', 'lastname', 'email', 'company', 'commercial_company_name', 'organization_type',
         'street1', 'street2', 'city', 'region', 'postcode', 'country_id',
         'telephone', 'vat_id',
     ];

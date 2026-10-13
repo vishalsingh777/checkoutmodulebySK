@@ -9,6 +9,10 @@
         <plugin name="insead_redirect_to_billing_step"
                 type="Insead\CustomCheckout\Plugin\RedirectToBillingStepPlugin"/>
     </type>
+    <type name="Ewave\InseadIntegration\Model\PopulateQuote">
+        <plugin name="insead_map_populate_billing_fields"
+                type="Insead\CustomCheckout\Plugin\MapPopulateBillingFieldsPlugin"/>
+    </type>
     <type name="Insead\CustomCheckout\Observer\Vat\RestoreQuoteCustomerGroup">
         <arguments>
             <argument name="searchCriteriaBuilder" xsi:type="object">Magento\Framework\Api\SearchCriteriaBuilder</argument>

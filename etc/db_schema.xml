@@ -125,6 +125,8 @@
         <column xsi:type="varchar" name="lastname" nullable="true" length="100" comment="Invoice recipient last name"/>
         <column xsi:type="varchar" name="email" nullable="true" length="255" comment="Invoice email"/>
         <column xsi:type="varchar" name="company" nullable="true" length="255" comment="Company legal name"/>
+        <column xsi:type="varchar" name="commercial_company_name" nullable="true" length="255" comment="Commercial Company Name"/>
+        <column xsi:type="varchar" name="organization_type" nullable="true" length="100" comment="Organisation Type"/>
         <column xsi:type="varchar" name="street1" nullable="true" length="255" comment="Company street 1"/>
         <column xsi:type="varchar" name="street2" nullable="true" length="255" comment="Company street 2"/>
         <column xsi:type="varchar" name="city" nullable="true" length="100" comment="Company city"/>

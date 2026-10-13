@@ -224,7 +224,7 @@
                         <label>SIREN Number
                             <span class="insead-tooltip" tabindex="0">i<span class="insead-tooltip__text">The first 9 digits of your SIRET number, identifying your company at the national level. Auto-filled from SIRET.</span></span>
                         </label>
-                        <input type="text" data-bind="value: siren" disabled/>
+                        <input type="text" data-bind="value: siren" readonly/>
                     </div>
                 </div>
                 <!-- /ko -->
@@ -250,23 +250,13 @@
                     <!-- ko if: showOrganizationType -->
                     <div class="field" data-bind="css: {'_error': hasError('organizationType')}">
                         <label>Organisation Type <!-- ko if: organizationTypeRequired --><span class="req">*</span><!-- /ko --></label>
-                        <select data-bind="value: organizationType">
-                            <option value="">Select an Option</option>
-                            <!-- ko foreach: organizationTypes -->
-                            <option data-bind="value: $data, text: $data"></option>
-                            <!-- /ko -->
-                        </select>
+                        <select data-bind="options: organizationTypes, optionsCaption: 'Select an Option', value: organizationType"></select>
                     </div>
                     <!-- /ko -->
                     <!-- ko if: showJobIndustry -->
                     <div class="field" data-bind="css: {'_error': hasError('jobIndustry')}">
                         <label>Job Industry <!-- ko if: jobIndustryRequired --><span class="req">*</span><!-- /ko --></label>
-                        <select data-bind="value: jobIndustry">
-                            <option value="">Select an Option</option>
-                            <!-- ko foreach: jobIndustries -->
-                            <option data-bind="value: $data, text: $data"></option>
-                            <!-- /ko -->
-                        </select>
+                        <select data-bind="options: jobIndustries, optionsCaption: 'Select an Option', value: jobIndustry"></select>
                     </div>
                     <!-- /ko -->
                 </div>

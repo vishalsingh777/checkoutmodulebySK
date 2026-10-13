@@ -79,6 +79,8 @@ class ExportOrganizationOnOrderPlaced implements ObserverInterface
                     'lastname'   => (string) ($order->getData('invoice_recipient_lastname') ?: $billing->getLastname()),
                     'email'      => (string) ($order->getData('invoice_email') ?: $billing->getEmail()),
                     'company'    => (string) $billing->getCompany(),
+                    'commercial_company_name' => (string) $order->getData('commercial_company_name'),
+                    'organization_type' => (string) $order->getData('organization_type'),
                     'street1'    => (string) ($street[0] ?? ''),
                     'street2'    => (string) ($street[1] ?? ''),
                     'city'       => (string) $billing->getCity(),
@@ -110,4 +112,3 @@ class ExportOrganizationOnOrderPlaced implements ObserverInterface
         }
     }
 }
-

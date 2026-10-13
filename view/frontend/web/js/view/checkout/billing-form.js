@@ -24,19 +24,22 @@ define([
     'use strict';
 
     // EU member-state ISO codes (France is its own group, handled separately
-    // below for SIRET/SIREN). GB included per spec; EL is the official ISO for Greece.
+    // below for SIRET/SIREN; UK is also its own group — see below — since
+    // Brexit means it's no longer an EU member for VAT purposes).
+    // EL is the official ISO for Greece.
     var euCountries = [
         'AT','BE','BG','HR','CY','CZ','DK','EE','FI','DE',
-        'EL','GB','HU','IE','IT','LV','LT','LU','MT','NL','PL',
+        'EL','HU','IE','IT','LV','LT','LU','MT','NL','PL',
         'PT','RO','SK','SI','ES','SE'
     ];
 
-    // Map any ISO 2-letter country code to a billing group: FR | SG | UAE | US | EU | ROW.
+    // Map any ISO 2-letter country code to a billing group: FR | SG | UAE | US | UK | EU | ROW.
     function countryToGroup(iso) {
         if (iso === 'FR') { return 'FR'; }
         if (iso === 'SG') { return 'SG'; }
         if (iso === 'AE') { return 'UAE'; }
         if (iso === 'US') { return 'US'; }
+        if (iso === 'GB') { return 'UK'; }
         if (euCountries.indexOf(iso) !== -1) { return 'EU'; }
         return 'ROW';
     }
@@ -73,13 +76,14 @@ define([
     };
 
     // Tax-status options available per country group. FR/SG get all three, UAE
-    // gets two; US/EU/ROW have only "Tax Registered" (so the dropdown is hidden —
-    // there is no choice to make).
+    // gets two; US/UK/EU/ROW have only "Tax Registered" (so the dropdown is
+    // hidden — there is no choice to make).
     var taxOptions = {
         FR:  ['reg', 'notreg', 'exempt'],
         SG:  ['reg', 'notreg', 'exempt'],
         UAE: ['reg', 'notreg'],
         US:  ['reg'],
+        UK:  ['reg'],
         EU:  ['reg'],
         ROW: ['reg']
     };
@@ -113,10 +117,8 @@ define([
         tooltip: 'Upload a copy of your valid tax exemption certificate (PDF or image).'};
     var UPLOAD_REQ = {code: 'tax_exempt_file',label: 'Upload Tax Exempt File',        type: 'file_req',
         tooltip: 'Upload a copy of your valid tax exemption certificate (PDF or image).'};
-    var VATUAE   = {code: 'vat_uae',        label: 'UAE VAT Number',                  type: 'req',
-        tooltip: "Your company's UAE VAT registration number, issued by the Federal Tax Authority."};
     var TRN      = {code: 'trn',             label: 'TRN',                             type: 'req',
-        tooltip: 'Tax Registration Number issued by the UAE Federal Tax Authority.'};
+        tooltip: 'UAE Tax Registration Number (TRN) issued by the Federal Tax Authority (FTA). Typically a 15-digit number.'};
     var EIN      = {code: 'ein',             label: 'EIN',                             type: 'req',
         tooltip: "Your company's Employer Identification Number issued by the US IRS."};
     var REG_LABEL= {code: 'reg_type_label', label: 'Registration Type',               type: 'opt', configKey: 'reg_type',
@@ -125,8 +127,19 @@ define([
         tooltip: 'The value of the registration number selected above.'};
     var VAT_IC   = {code: 'vat_intracommunity', label: 'VAT Intracommunity Number',   type: 'req',
         tooltip: "Your company's Intracommunity VAT number, validated against the EU VIES database."};
+    // UK-specific: optional (not required), relabeled plain "VAT Number"
+    // since the UK left the EU VAT area — same underlying column
+    // (vat_intracommunity) as the EU version, just a different label/
+    // requiredness for this one country. NOT run through live VIES
+    // validation — VIES only covers EU member states, so it would
+    // incorrectly reject or fail to check a genuine UK VAT number (see
+    // _scheduleVatValidation).
+    var VAT_UK   = {code: 'vat_intracommunity', label: 'VAT Number',                  type: 'opt',
+        tooltip: "Your company's UK VAT registration number, if applicable."};
     var UEN_SG   = {code: 'uen', label: 'Business Registration Number (UEN)',         type: 'req',
         tooltip: "Your company's Unique Entity Number issued by the Singapore government."};
+    var UEN_UAE  = {code: 'uen', label: 'CRN',            type: 'req',
+        tooltip: 'UAE Company Registration Number (CRN) issued by the relevant UAE authority.'};
     var UEN_GEN  = {code: 'uen', label: 'Business Registration Number',               type: 'req',
         tooltip: 'Official business registration or tax identification number issued by the relevant government authority in the selected country.'};
     var GST_NUM  = {code: 'gst_number', label: 'GST Number',                          type: 'req',
@@ -145,8 +158,8 @@ define([
 
         // UAE has only Reg and Not-Reg (no Exempt option per spec).
         // Business Registration Number (BRN) required for UAE per spec.
-        UAE_reg:    [TRN, VATUAE, DUNS, PO],
-        UAE_notreg: [TRN, DUNS,         PO],
+        UAE_reg:    [UEN_UAE, TRN, DUNS, PO],
+        UAE_notreg: [UEN_UAE, TRN, DUNS, PO],
         UAE_exempt: [CERT_REQ, DUNS,        PO, ROUTING],   // unreachable; no UPLOAD per spec
 
         // US: no national VAT/GST equivalent.
@@ -160,6 +173,12 @@ define([
         EU_reg:    [UEN_GEN, VAT_IC, DUNS, PO],
         EU_notreg: [UEN_GEN, DUNS,         PO, ROUTING, REG_LABEL, REG_VALUE, CERT_OPT],
         EU_exempt: [CERT_REQ, DUNS, PO, ROUTING],            // unreachable; no UPLOAD per spec
+
+        // UK: same shape as EU_reg, but VAT Number is optional (VAT_UK) not
+        // required (VAT_IC) — the UK is no longer an EU member for VAT
+        // purposes. Only UK_reg exists since taxOptions.UK offers just
+        // "Tax Registered" (no real choice), same as EU/US/ROW.
+        UK_reg:    [UEN_GEN, VAT_UK, DUNS, PO],
 
         // ROW_reg drops Routing Address/Registration Type/Registration Type
         // Value/Certificate ID — not applicable once the company is Tax Registered.
@@ -202,16 +221,43 @@ define([
     ];
 
     var jobIndustries = [
-        'Accounting', 'Agriculture', 'Airlines/Aviation', 'Architecture & Planning', 'Automotive',
-        'Banking', 'Biotechnology', 'Capital Markets', 'Chemicals', 'Computer Software',
-        'Construction', 'Consulting', 'Consumer Goods', 'Education Management', 'Financial Services',
-        'Government Administration', 'Health, Wellness and Fitness', 'Higher Education',
-        'Hospital & Health Care', 'Hospitality', 'Human Resources', 'Information Technology and Services',
-        'Insurance', 'Investment Banking', 'Investment Management', 'Legal Services', 'Logistics and Supply Chain',
-        'Management Consulting', 'Manufacturing', 'Marketing and Advertising', 'Oil & Energy',
-        'Pharmaceuticals', 'Private Equity', 'Real Estate', 'Renewables & Environment', 'Research',
-        'Retail', 'Telecommunications', 'Transportation/Trucking/Railroad', 'Utilities',
-        'Venture Capital', 'Other'
+        'Accounting', 'Agriculture', 'Airlines/Aviation', 'Alternative Dispute Resolution',
+        'Alternative Medicine', 'Animation', 'Apparel and Fashion', 'Architecture & Planning',
+        'Arts and Crafts', 'Automotive', 'Aviation and Aerospace', 'Banking', 'Biotechnology',
+        'Broadcast Media', 'Building Materials', 'Business Supplies and Equipment', 'Capital Markets',
+        'Chemicals', 'Civic & Social Organization', 'Civil Engineering', 'Commercial Real Estate',
+        'Computer Games', 'Computer Hardware', 'Computer Networking', 'Computer Software',
+        'Computer and Network Security', 'Construction', 'Consulting', 'Consumer Electronics',
+        'Consumer Goods', 'Consumer Services', 'Cosmetics', 'Dairy', 'Defense & Space', 'Design',
+        'E-Commerce', 'E-Learning', 'Education Management', 'Electrical/Electronic Manufacturing',
+        'Entertainment', 'Environmental Services', 'Events Services', 'Executive Office',
+        'Executive Search', 'Facilities Services', 'Farming', 'Financial Services', 'Fine Art',
+        'Fishery', 'Food and Beverages Production', 'Fund-Raising', 'Furniture', 'Gambling & Casinos',
+        'Glass, Ceramics & Concrete', 'Government Administration', 'Government Relations',
+        'Graphic Design', 'Health, Wellness and Fitness', 'Higher Education', 'Hospital & Health Care',
+        'Hospitality', 'Human Resources', 'Import and Export', 'Individual and Family Services',
+        'Industrial Automation', 'Information Services', 'Information Technology and Services',
+        'Insurance', 'International Affairs', 'International Trade and Development', 'Internet',
+        'Investment Banking', 'Investment Management', 'Judiciary', 'Law Enforcement', 'Law Practice',
+        'Legal Services', 'Legislative Office', 'Leisure, Travel and Tourism', 'Libraries',
+        'Logistics and Supply Chain', 'Luxury Goods and Jewelry', 'Machinery', 'Management Consulting',
+        'Manufacturing', 'Maritime', 'Market Research', 'Marketing and Advertising',
+        'Mechanical or Industrial Engineering', 'Media Production', 'Medical Devices',
+        'Medical Practice', 'Mental Health Care', 'Military', 'Mining & Metals',
+        'Motion Pictures and Film', 'Museums and Institutions', 'Music', 'Nanotechnology',
+        'Newspapers', 'Non-Profit Organization Management', 'Oil & Energy', 'Online Media',
+        'Outsourcing/Offshoring', 'Package/Freight Delivery', 'Packaging and Containers',
+        'Paper & Forest Products', 'Performing Arts', 'Pharmaceuticals', 'Philanthropy',
+        'Photography', 'Plastics', 'Political Organization', 'Primary/Secondary Education', 'Printing',
+        'Private Equity', 'Professional Training & Coaching', 'Program Development', 'Public Policy',
+        'Public Relations and Communications', 'Public Safety', 'Publishing', 'Railroad Manufacture',
+        'Ranching', 'Real Estate', 'Recreational Facilities and Services', 'Religious Institutions',
+        'Renewables & Environment', 'Research', 'Restaurants', 'Retail', 'Security and Investigations',
+        'Semiconductors', 'Shipbuilding', 'Sporting Goods', 'Sports', 'Staffing and Recruiting',
+        'Supermarkets', 'Telecommunications', 'Textiles', 'Think Tanks', 'Tobacco',
+        'Translation and Localization', 'Transportation/Trucking/Railroad', 'Utilities',
+        'Venture Capital', 'Veterinary', 'Warehousing', 'Wholesale', 'Wine and Spirits', 'Wireless',
+        'Writing and Editing', 'Other'
     ];
 
     // GST Declaration statements (Rest-of-World, programme in Singapore).
@@ -244,6 +290,8 @@ define([
             organizationTypeRequired: true,
             showJobIndustry: true,
             jobIndustryRequired: true,
+            showTrn: true,
+            trnRequired: true,
             phoneRequiredB2c: true,
             phoneRequiredB2b: false,
             urls: {},
@@ -296,6 +344,8 @@ define([
             this.organizationTypeRequired = !!this.organizationTypeRequired;
             this.showJobIndustry = !!this.showJobIndustry;
             this.jobIndustryRequired = !!this.jobIndustryRequired;
+            this.showTrn = !!this.showTrn;
+            this.trnRequired = !!this.trnRequired;
             this.phoneRequiredB2c = !!this.phoneRequiredB2c;
             this.phoneRequiredB2b = !!this.phoneRequiredB2b;
 
@@ -410,7 +460,7 @@ define([
             this.jobIndustry = ko.observable(pf.job_industry || '');
             this.isCompanyNameAuto = ko.observable(false);
             this.siret = ko.observable(isFR ? (pf.uen || '') : '');
-            this.siren = ko.observable('');
+            this.siren = ko.observable(this.siret().length >= 9 ? this.siret().substring(0, 9) : '');
             // Live SIRET checksum feedback: idle | valid | invalid.
             this.siretStatus = ko.observable('idle');
             this.siretMessage = ko.observable('');
@@ -438,7 +488,9 @@ define([
             // maps to SIRET in Organisation Details, not Tax & Legal).
             var seed = {
                 vat_intracommunity: pf.vat_intracommunity, gst_number: pf.gst_number,
-                vat_uae: pf.vat_uae, trn: pf.trn, ein: pf.ein,
+                vat_uae: pf.vat_uae, trn: pf.trn,
+                // US EIN is persisted in `uen` (see _collectPayload), so it round-trips from there.
+                ein: pf.ein || (pf.country_id === 'US' ? pf.uen : ''),
                 tax_id_number: pf.tax_id_number, certificate_id: pf.certificate_id,
                 duns_number: pf.duns_number, routing_address: pf.routing_address,
                 po_number: pf.po_number,
@@ -684,6 +736,7 @@ define([
             }
 
             var defs = (fieldDefs[group + '_' + this.taxStatus()] || []).filter(function (def) {
+                if (def.code === 'trn') { return self.showTrn; }
                 return !def.configKey || self.showOptionalTaxFields[def.configKey];
             });
 
@@ -700,7 +753,9 @@ define([
                     tooltip: def.tooltip ? $t(def.tooltip) : '',
                     type: def.type,
                     isFile: def.type === 'file' || def.type === 'file_req',
-                    required: def.type === 'req' || def.type === 'file_req',
+                    required: def.code === 'trn'
+                        ? self.trnRequired
+                        : (def.type === 'req' || def.type === 'file_req'),
                     value: self.valueFor(def.code)
                 };
             }));
@@ -753,6 +808,16 @@ define([
             clearTimeout(this._vatTimer);
 
             if (!value) {
+                this.vatStatus('idle');
+                this.vatMessage('');
+                return;
+            }
+            // UK is no longer an EU member — VIES (the service _checkVat
+            // calls) only covers EU member states, so it would incorrectly
+            // fail or reject a genuine UK VAT number. The field is optional
+            // for UK (see VAT_UK), so there's no live-checkmark validation
+            // for it at all — just a plain optional text field.
+            if (self.countryGroup() === 'UK') {
                 this.vatStatus('idle');
                 this.vatMessage('');
                 return;
@@ -1075,21 +1140,24 @@ define([
                     data[f.code] = (f.isFile && paths[f.code]) ? paths[f.code] : f.value();
                 });
 
-                // Also mirror UAE's TRN and US's EIN into `uen` — same idea as
-                // France's SIRET above, so `uen` becomes a consistent "business
-                // registration number, whatever this country calls it" column
-                // across every country, not just some. reg_type_label/value
-                // record which one it actually is, so `uen` is self-documenting
-                // here too rather than needing country_id to interpret it.
-                // Read from data.trn/data.ein (already correctly blanked/filled
-                // by the two steps above) rather than the raw observables, so a
-                // leftover TRN/EIN value from an earlier country/tax-status
+                // Mirror US's EIN into `uen` — same idea as France's SIRET
+                // above, so `uen` becomes a consistent "business registration
+                // number, whatever this country calls it" column across every
+                // country, not just some. reg_type_label/value record that
+                // it's really an EIN, so `uen` is self-documenting here too
+                // rather than needing country_id to interpret it.
+                // UAE does NOT mirror into `uen` here — it has its own
+                // dedicated Trade/Commercial Licence Number field (UEN_UAE)
+                // that already fills `uen` correctly via the standard
+                // dynamic-field loop above, since UAE's business registration
+                // number and its TRN (tax/VAT identifier) are two genuinely
+                // different values, unlike US Tax Registered which has no
+                // separate business-registration field of its own.
+                // Read from data.ein (already correctly blanked/filled by the
+                // two steps above) rather than the raw observable, so a
+                // leftover EIN value from an earlier country/tax-status
                 // selection never leaks into `uen` after switching away from it.
-                if (data.trn) {
-                    data.uen = data.trn;
-                    data.reg_type_label = 'TRN';
-                    data.reg_type_value = data.trn;
-                } else if (data.ein) {
+                if (data.ein) {
                     data.uen = data.ein;
                     data.reg_type_label = 'EIN';
                     data.reg_type_value = data.ein;
@@ -1097,6 +1165,13 @@ define([
                     data.uen = data.certificate_id;
                     data.reg_type_label = 'certificate id';
                     data.reg_type_value = data.certificate_id;
+                }
+
+                // TRN also saves as UAE's VAT/tax number — confirmed business
+                // rule that they're the same value for UAE. Independent of
+                // the uen-mirroring above since TRN no longer touches uen.
+                if (data.trn) {
+                    data.vat_uae = data.trn;
                 }
             }
 

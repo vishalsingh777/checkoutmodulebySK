@@ -92,6 +92,8 @@ class Checkout extends Template
             'organizationTypeRequired'      => $this->isSimpleFlagEnabled('organization_type_required'),
             'showJobIndustry'               => $this->isSimpleFlagEnabled('show_job_industry'),
             'jobIndustryRequired'           => $this->isSimpleFlagEnabled('job_industry_required'),
+            'showTrn'                       => $this->isSimpleFlagEnabled('show_trn'),
+            'trnRequired'                   => $this->isSimpleFlagEnabled('trn_required'),
             'formKey'             => $this->formKey->getFormKey(),
             'urls'                => [
                 'lookup'      => $this->getUrl('insead_checkout/company/lookup'),
@@ -229,9 +231,14 @@ class Checkout extends Template
                 'uen'                => $val($quote->getData('uen')),
                 'vat_intracommunity' => $val($quote->getData('vat_intracommunity')),
                 'gst_number'         => $val($quote->getData('gst_number')),
+                'vat_uae'            => $val($quote->getData('vat_uae')),
+                // Save.php stores the form's TRN field in vat_uae.
+                'trn'                => $val($quote->getData('vat_uae')),
                 'tax_id_number'      => $val($quote->getData('tax_id_number')),
                 'certificate_id'     => $val($quote->getData('certificate_id')),
                 'duns_number'        => $val($quote->getData('duns_number')),
+                'reg_type_label'     => $val($quote->getData('reg_type_label')),
+                'reg_type_value'     => $val($quote->getData('reg_type_value')),
                 'routing_address'       => $val($quote->getData('routing_address')),
                 'tax_exempt_file'       => $val($quote->getData('tax_exempt_file')),
                 'peoplesoft_id'         => $val($quote->getData('peoplesoft_id')),
@@ -267,17 +274,48 @@ class Checkout extends Template
                     }
                 }
 
-                // B2B: backfill the company's saved default billing address (link →
-                // insead_company_address). Only for B2B so a B2C quote's personal
-                // address is never overwritten with company data.
+                // Company's saved profile (link → insead_company_address).
+                // Split into two passes with different safety rules:
+                //
+                // Pass 1 (always runs, regardless of is_btob): fields that
+                // are EXCLUSIVELY read by B2B frontend fields — company
+                // name, Organisation Type, business registration number,
+                // invoice recipient name/email. B2C never reads these keys
+                // at all, so there is no risk in populating them even when
+                // the customer arrives as B2C — this is what lets a
+                // customer who starts as B2C and later switches to
+                // "Sponsored by Organisation" in the dropdown still see
+                // their saved company name/type/registration number.
+                //
+                // Pass 2 (still gated on is_btob === 1): address and phone
+                // fields (street/city/region/postcode/country/telephone).
+                // These keys are SHARED — read by both B2C's own address
+                // fields and B2B's company postal address fields. Populating
+                // them unconditionally would risk a genuine B2C order
+                // silently showing a previous B2B company's address instead
+                // of the customer's own, if the same account had ordered
+                // as B2B before. Kept gated per explicit decision: address/
+                // phone stay safe, at the cost of the customer needing to
+                // retype the company's address after switching to B2B.
+                $companyAddress = $this->companyProfile->findDefaultAddressByCustomer($customerId);
+
+                $companyOnlyMap = [
+                    'firstname'  => 'invoice_recipient_firstname',
+                    'lastname'   => 'invoice_recipient_lastname',
+                    'email'      => 'invoice_email',
+                    'company'    => 'company_legal_name',
+                    'commercial_company_name' => 'commercial_company_name',
+                    'organization_type' => 'organization_type',
+                    'vat_id'     => 'uen',
+                ];
+                foreach ($companyOnlyMap as $addrField => $prefillKey) {
+                    if (isset($companyAddress[$addrField]) && ($data[$prefillKey] ?? '') === '') {
+                        $data[$prefillKey] = $val($companyAddress[$addrField]);
+                    }
+                }
+
                 if ($isBtob === 1) {
-                    //print_r($data);die('Hey');
-                    $companyAddress = $this->companyProfile->findDefaultAddressByCustomer($customerId);
-                    $addressMap = [
-                        'firstname'  => 'invoice_recipient_firstname',
-                        'lastname'   => 'invoice_recipient_lastname',
-                        'email'      => 'invoice_email',
-                        'company'    => 'company_legal_name',
+                    $sharedAddressMap = [
                         'street1'    => 'street1',
                         'street2'    => 'street2',
                         'city'       => 'city',
@@ -285,9 +323,8 @@ class Checkout extends Template
                         'postcode'   => 'postcode',
                         'country_id' => 'country_id',
                         'telephone'  => 'telephone',
-                        'vat_id'     => 'vat_id',
                     ];
-                    foreach ($addressMap as $addrField => $prefillKey) {
+                    foreach ($sharedAddressMap as $addrField => $prefillKey) {
                         if (isset($companyAddress[$addrField]) && ($data[$prefillKey] ?? '') === '') {
                             $data[$prefillKey] = $val($companyAddress[$addrField]);
                         }
