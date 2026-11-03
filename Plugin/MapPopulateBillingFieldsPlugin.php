@@ -138,12 +138,14 @@ class MapPopulateBillingFieldsPlugin
         $quote->setData('financing_profile', $profile);
         $quote->setData('is_btob', $isB2b ? 1 : 0);
 
-        // Reference number supplied by APOL / the integrated platform. Applies
+        // Reference number supplied by APOL / the integrated platform (APOL's
+        // field name is `your_reference`; `reference_number` kept as fallback). Applies
         // to both profiles and is only ever set here — it is deliberately NOT
         // in Controller\Billing\Save::ALLOWED_COLUMNS, so the shopper's own
         // form post can never overwrite it. Copied to the order (etc/fieldset.xml)
         // so the invoice template can print it.
-        $referenceNumber = trim((string) $request->getData('reference_number'));
+        $referenceNumber = trim((string) $request->getData('your_reference'))
+            ?: trim((string) $request->getData('reference_number'));
         if ($referenceNumber !== '') {
             $quote->setData('reference_number', $referenceNumber);
         }
@@ -188,6 +190,16 @@ class MapPopulateBillingFieldsPlugin
         $jobIndustry = $this->resolveJobIndustry(trim((string) $request->getData('job_industry')));
         if ($jobIndustry !== '') {
             $quote->setData('job_industry', $jobIndustry);
+        }
+
+        // The raw 3rd-party "Sector of activity" code arrives in `job_industry`
+        // (see JOB_INDUSTRY_MAP above). Keep the untouched code on the order as
+        // sector_of_activity (-> insead_mg_organization.sic_code); an explicit
+        // `sector_of_activity` key wins if APOL ever sends one.
+        $sector = trim((string) $request->getData('sector_of_activity'))
+            ?: trim((string) $request->getData('job_industry'));
+        if ($sector !== '') {
+            $quote->setData('sector_of_activity', $sector);
         }
 
         // company_vat_number is the fallback for partners that only send the billing-address VAT.

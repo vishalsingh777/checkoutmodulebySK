@@ -63,9 +63,35 @@ class MgOrganizationWriter
             'update_date' => $now,
         ];
 
+        // No organisation data on this order (typical B2C order): leave the
+        // customer's existing organisation row untouched. The order itself
+        // (sales_order) is the permanent per-order record.
+        $orgFields = ['organization_legal_name', 'business_registration_number', 'tax_registration_number',
+            'tax_registration_status', 'duns_number', 'certification_number', 'sic_code'];
+        $hasOrgData = false;
+        foreach ($orgFields as $field) {
+            if (trim((string) ($row[$field] ?? '')) !== '') {
+                $hasOrgData = true;
+                break;
+            }
+        }
+        if (!$hasOrgData) {
+            return;
+        }
+
         // creation_date and organization_system_id are set only on insert,
         // never overwritten on a subsequent upsert from quote -> order.
-        $updateColumns = array_diff(array_keys($row), ['organization_system_id', 'creation_date']);
+        // NULL values never overwrite an existing value (a partial order must
+        // not blank out previously captured fields).
+        $updateColumns = [];
+        foreach ($row as $column => $value) {
+            if (in_array($column, ['organization_system_id', 'creation_date'], true)) {
+                continue;
+            }
+            if ($value !== null && $value !== '') {
+                $updateColumns[] = $column;
+            }
+        }
         $connection->insertOnDuplicate($table, $row, $updateColumns);
     }
 }

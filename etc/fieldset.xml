@@ -82,6 +82,12 @@
             <field name="residency_declaration">
                 <aspect name="to_order"/>
             </field>
+            <field name="peoplesoft_id">
+                <aspect name="to_order"/>
+            </field>
+            <field name="sector_of_activity">
+                <aspect name="to_order"/>
+            </field>
             <field name="reference_number">
                 <aspect name="to_order"/>
             </field>
