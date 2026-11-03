@@ -35,6 +35,7 @@
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
+        <column xsi:type="varchar" name="reference_number" nullable="true" length="255" comment="Reference Number (from APOL / integrated platform; shown on the invoice)"/>
         <column xsi:type="smallint" name="insead_billing_confirmed" padding="5" unsigned="true" nullable="true" default="0"
                 comment="1 once the INSEAD Tax &amp; Legal / Billing Information step has been saved for this quote. Gates the handoff from the custom billing step to native Magento checkout for payment — see Observer\AddCustomCheckoutLayoutHandle."/>
         <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
@@ -68,6 +69,7 @@
         <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration selection"/>
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
+        <column xsi:type="varchar" name="reference_number" nullable="true" length="255" comment="Reference Number (from APOL / integrated platform; shown on the invoice)"/>
         <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
                 comment="LEGACY / no longer written to: Singapore GST used to be computed here by the now-retired Model\Total\Quote\Gst (B2B flat-rate total). GST is now calculated by native Tax Rules keyed to the 6 Singapore GST customer groups' Tax Classes instead — see Model\Gst\CustomerGroupResolver. Column kept (not dropped) in case existing rows still reference it; safe to remove in a future cleanup once confirmed unused."/>
         <column xsi:type="decimal" name="insead_base_gst_amount" scale="4" precision="20" nullable="true"

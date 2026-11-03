@@ -138,6 +138,16 @@ class MapPopulateBillingFieldsPlugin
         $quote->setData('financing_profile', $profile);
         $quote->setData('is_btob', $isB2b ? 1 : 0);
 
+        // Reference number supplied by APOL / the integrated platform. Applies
+        // to both profiles and is only ever set here — it is deliberately NOT
+        // in Controller\Billing\Save::ALLOWED_COLUMNS, so the shopper's own
+        // form post can never overwrite it. Copied to the order (etc/fieldset.xml)
+        // so the invoice template can print it.
+        $referenceNumber = trim((string) $request->getData('reference_number'));
+        if ($referenceNumber !== '') {
+            $quote->setData('reference_number', $referenceNumber);
+        }
+
         $gender = self::GENDER_MAP[strtolower(trim((string) $request->getData('gender')))] ?? '';
         if ($gender !== '') {
             $quote->setData('gender', $gender);
