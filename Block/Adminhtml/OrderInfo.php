@@ -18,6 +18,7 @@ class OrderInfo extends Template
     /** Column code => label, in display order. */
     private const FIELDS = [
         'peoplesoft_id'               => 'PeopleSoft ID',
+        'reference_number'            => 'Reference Number',
         'financing_profile'           => 'Financing Profile',
         'sector_of_activity'          => 'Sector of Activity',
         'nationality'                 => 'Nationality',

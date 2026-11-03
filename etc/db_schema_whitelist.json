@@ -28,6 +28,7 @@
             "gst_declaration": true,
             "residency_declaration": true,
             "peoplesoft_id": true,
+            "reference_number": true,
             "insead_gst_amount": true,
             "insead_base_gst_amount": true
         },
@@ -64,6 +65,7 @@
             "gst_declaration": true,
             "residency_declaration": true,
             "peoplesoft_id": true,
+            "reference_number": true,
             "insead_gst_amount": true,
             "insead_base_gst_amount": true
         }
