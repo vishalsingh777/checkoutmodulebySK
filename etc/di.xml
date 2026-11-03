@@ -28,6 +28,7 @@
     <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
         <arguments>
             <argument name="columns" xsi:type="array">
+                <item name="po_number" xsi:type="string">sales_order.po_number</item>
                 <item name="peoplesoft_id" xsi:type="string">sales_order.peoplesoft_id</item>
                 <item name="reference_number" xsi:type="string">sales_order.reference_number</item>
                 <item name="financing_profile" xsi:type="string">sales_order.financing_profile</item>

@@ -79,6 +79,7 @@
     </table>
     <!-- Mirror of the custom sales_order columns so they show/filter/export in the admin order grid. -->
     <table name="sales_order_grid">
+        <column xsi:type="varchar" name="po_number" nullable="true" length="255" comment="PO Number (owned by Ewave on sales_order)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft ID"/>
         <column xsi:type="varchar" name="reference_number" nullable="true" length="255" comment="Reference Number"/>
         <column xsi:type="varchar" name="financing_profile" nullable="true" length="50" comment="Financing Profile"/>

@@ -3,6 +3,13 @@
 <listing xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Ui:etc/ui_configuration.xsd">
     <columns name="sales_order_columns">
+        <column name="po_number">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">PO Number</label>
+                <visible>false</visible>
+            </settings>
+        </column>
         <column name="peoplesoft_id">
             <settings>
                 <filter>text</filter>

@@ -157,6 +157,7 @@
     },
     "sales_order_grid": {
         "column": {
+            "po_number": true,
             "peoplesoft_id": true,
             "reference_number": true,
             "financing_profile": true,
