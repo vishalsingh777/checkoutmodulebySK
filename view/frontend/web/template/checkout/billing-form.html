@@ -160,9 +160,9 @@
                     </div>
                 </div>
                 <div class="field-row two-col">
-                    <div class="field" data-bind="css: {'_full': !showGenderFieldB2b}">
-                        <label>Email Address</label>
-                        <input type="email" disabled data-bind="value: customerEmail"/>
+                    <div class="field" data-bind="css: {'_full': !showGenderFieldB2b, '_error': hasError('customerEmail')}">
+                        <label>Email Address <span class="req" data-bind="visible: !isLoggedIn">*</span></label>
+                        <input type="email" data-bind="value: customerEmail, valueUpdate: 'input', disable: isLoggedIn"/>
                     </div>
                     <!-- ko if: showGenderFieldB2b -->
                     <div class="field" data-bind="css: {'_error': hasError('gender')}">

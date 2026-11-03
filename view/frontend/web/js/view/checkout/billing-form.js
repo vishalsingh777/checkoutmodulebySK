@@ -23,6 +23,30 @@ define([
 ], function (Component, ko, $, $t, alert) {
     'use strict';
 
+    /**
+     * Native checkout keeps its own copy of the shopper's checkout choices,
+     * including the billing address, in the browser (local storage,
+     * mage-cache-storage -> "checkout-data") and prefers it over what the
+     * server sends. Without this, returning to /checkout after editing the
+     * address here shows the FIRST address entered, because that stored copy
+     * is never refreshed. Once this step has saved successfully, drop the
+     * stored entry so the next /checkout load is built from the address just
+     * saved. Removes the whole key (confirmed to fix the issue by hand);
+     * native checkout recreates it as the shopper continues.
+     */
+    function clearNativeBillingState() {
+        try {
+            var cache = JSON.parse(window.localStorage.getItem('mage-cache-storage') || '{}');
+            if (cache && Object.prototype.hasOwnProperty.call(cache, 'checkout-data')) {
+                delete cache['checkout-data'];
+                window.localStorage.setItem('mage-cache-storage', JSON.stringify(cache));
+            }
+        } catch (e) {
+            // Storage unavailable or unparsable (private mode, blocked) —
+            // nothing to clear; checkout still works as before.
+        }
+    }
+
     // EU member-state ISO codes (France is its own group, handled separately
     // below for SIRET/SIREN; UK is also its own group — see below — since
     // Brexit means it's no longer an EU member for VAT purposes).
@@ -356,11 +380,13 @@ define([
             // Billing-address identity (name/email). Supplied by the upstream
             // flow. Name is editable for B2B (see the field-visibility note
             // near the country subscription below for how this stays in
-            // sync with Invoice Recipient); email stays locked, so it
-            // remains a plain value rather than an observable.
+            // sync with Invoice Recipient). Email is locked for logged-in
+            // customers (it is their account email) but EDITABLE for guests,
+            // who arrive straight from the Magento flow with nothing passed
+            // in to pre-fill it — so it is an observable.
             this.customerFirstName = ko.observable(pf.firstname || customer.firstname || '');
             this.customerLastName = ko.observable(pf.lastname || customer.lastname || '');
-            this.customerEmail = pf.email || customer.email || '';
+            this.customerEmail = ko.observable(pf.email || customer.email || '');
             // Phone pre-fills from the upstream flow but is editable for B2B.
             this.customerTelephone = ko.observable(pf.telephone || '');
 
@@ -616,6 +642,7 @@ define([
             [
                 ['b2cFirstName', this.b2cFirstName], ['b2cLastName', this.b2cLastName],
                 ['b2cEmail', this.b2cEmail, function (v) { return emailRe.test(v || ''); }],
+                ['customerEmail', this.customerEmail, function (v) { return emailRe.test(v || ''); }],
                 ['gender', this.gender], ['nationality', this.nationality],
                 ['street1', this.street1], ['city', this.city],
                 ['residencyDeclaration', this.residencyDeclaration],
@@ -1013,6 +1040,10 @@ define([
             } else {
                 if (!this.customerFirstName()) { errs.customerFirstName = true; }
                 if (!this.customerLastName()) { errs.customerLastName = true; }
+                // Guests type their own email (the field is locked for logged-in customers).
+                if (!this.isLoggedIn && (!this.customerEmail() || !emailRe.test(this.customerEmail()))) {
+                    errs.customerEmail = true;
+                }
                 if (!this.invoiceFirstName()) { errs.invoiceFirstName = true; }
                 if (!this.invoiceLastName()) { errs.invoiceLastName = true; }
                 if (!this.invoiceEmail() || !emailRe.test(this.invoiceEmail())) { errs.invoiceEmail = true; }
@@ -1094,7 +1125,11 @@ define([
                 // Billing address contact = invoice recipient.
                 data.firstname = this.invoiceFirstName();
                 data.lastname = this.invoiceLastName();
-                data.email = this.invoiceEmail();
+                // Logged-in: unchanged (invoice email). Guest: the email they
+                // typed in the Email Address field becomes the order/account
+                // contact email; the invoice email still goes separately in
+                // invoice_email below.
+                data.email = this.isLoggedIn ? this.invoiceEmail() : this.customerEmail();
                 data.telephone = this.customerTelephone();
                 data.gender = this.gender();
                 data.nationality = this.nationality();
@@ -1228,6 +1263,7 @@ define([
                 return self._postBilling();
             }).done(function (res) {
                 if (res && res.success && res.redirect) {
+                    clearNativeBillingState();
                     window.location.href = res.redirect;
                     return; // leave isLoading(true) — the page is navigating away
                 }
