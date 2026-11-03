@@ -87,7 +87,7 @@ class ExportOrganizationOnOrderPlaced implements ObserverInterface
                     'region'     => (string) ($billing->getRegionCode() ?: $billing->getRegion()),
                     'postcode'   => (string) $billing->getPostcode(),
                     'country_id' => (string) $billing->getCountryId(),
-                    'telephone'  => (string) $billing->getTelephone(),
+                    'telephone'  => $this->realPhone((string) $billing->getTelephone()),
                     'vat_id'     => (string) $billing->getVatId(),
                 ]);
             } catch (\Throwable $e) {
@@ -104,11 +104,17 @@ class ExportOrganizationOnOrderPlaced implements ObserverInterface
                     'region'     => (string) ($billing->getRegionCode() ?: $billing->getRegion()),
                     'postcode'   => (string) $billing->getPostcode(),
                     'country_id' => (string) $billing->getCountryId(),
-                    'telephone'  => (string) $billing->getTelephone(),
+                    'telephone'  => $this->realPhone((string) $billing->getTelephone()),
                 ]);
             } catch (\Throwable $e) {
                 $this->logger->error('INSEAD B2C customer address save (order placed): ' . $e->getMessage());
             }
         }
+    }
+
+    /** Never persist the checkout's dummy phone into reusable address records. */
+    private function realPhone(string $phone): string
+    {
+        return $phone === \Insead\CustomCheckout\Controller\Billing\Save::PLACEHOLDER_TELEPHONE ? '' : $phone;
     }
 }

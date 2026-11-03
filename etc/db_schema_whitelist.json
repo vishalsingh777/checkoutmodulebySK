@@ -12,8 +12,6 @@
             "uen": true,
             "vat_intracommunity": true,
             "vat_uae": true,
-            "trn": true,
-            "ein": true,
             "gst_number": true,
             "tax_id_number": true,
             "certificate_id": true,
@@ -30,10 +28,8 @@
             "peoplesoft_id": true,
             "reference_number": true,
             "insead_gst_amount": true,
-            "insead_base_gst_amount": true
-        },
-        "insead_billing_confirmed": {
-            "column": true
+            "insead_base_gst_amount": true,
+            "insead_billing_confirmed": true
         }
     },
     "sales_order": {
@@ -49,8 +45,6 @@
             "uen": true,
             "vat_intracommunity": true,
             "vat_uae": true,
-            "trn": true,
-            "ein": true,
             "gst_number": true,
             "tax_id_number": true,
             "certificate_id": true,
@@ -119,6 +113,8 @@
             "lastname": true,
             "email": true,
             "company": true,
+            "commercial_company_name": true,
+            "organization_type": true,
             "street1": true,
             "street2": true,
             "city": true,

@@ -8,6 +8,7 @@ use Magento\Framework\App\Request\InvalidRequestException;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
 use Magento\Customer\Api\CustomerRepositoryInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\ResultInterface;
@@ -16,7 +17,9 @@ use Magento\Checkout\Model\Session as CheckoutSession;
 use Magento\Customer\Model\Session as CustomerSession;
 use Magento\Eav\Model\Config as EavConfig;
 use Magento\Framework\UrlInterface;
+use Magento\Directory\Model\RegionFactory;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Store\Model\ScopeInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -37,8 +40,15 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         'invoice_recipient_firstname', 'invoice_recipient_lastname', 'invoice_email',
         'reg_type_label', 'reg_type_value', 'gender', 'nationality', 'po_number',
         'job_industry', 'gst_declaration', 'residency_declaration',
-        'peoplesoft_id',
     ];
+
+    // NOTE: 'peoplesoft_id' (and 'reference_number') are deliberately NOT
+    // writable from this form. They are identity/integration values that come
+    // from a trusted source only (the Ewave populate flow via
+    // Plugin\MapPopulateBillingFieldsPlugin, or the customer record).
+
+    /** Dummy phone used only when the store config makes telephone mandatory. */
+    public const PLACEHOLDER_TELEPHONE = '0000000000';
 
     public function __construct(
         private readonly RequestInterface $request,
@@ -51,7 +61,9 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
         private readonly EavConfig $eavConfig,
         private readonly UrlInterface $url,
         private readonly CartRepositoryInterface $cartRepository,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly RegionFactory $regionFactory,
+        private readonly ScopeConfigInterface $scopeConfig
     ) {
     }
 
@@ -78,41 +90,65 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
             $existingStreet = is_array($existingStreet) ? $existingStreet : [];
 
             $posted = static fn (string $key): string => trim((string) ($p[$key] ?? ''));
+            // Explicitly posted value (even blank) wins for OPTIONAL fields so a
+            // customer can clear them; otherwise keep the populated value.
+            $optional = static fn (string $key, string $existing) => array_key_exists($key, $p)
+                ? trim((string) $p[$key])
+                : $existing;
 
             $firstname = $posted('firstname') ?: (string) $billing->getFirstname()
-                ?: ($customer ? (string) $customer->getFirstname() : '') ?: 'INSEAD';
+                ?: ($customer ? (string) $customer->getFirstname() : '');
             $lastname  = $posted('lastname') ?: (string) $billing->getLastname()
-                ?: ($customer ? (string) $customer->getLastname() : '') ?: 'Participant';
+                ?: ($customer ? (string) $customer->getLastname() : '');
             $email     = $posted('email') ?: (string) $quote->getCustomerEmail() ?: (string) $billing->getEmail()
                 ?: ($customer ? (string) $customer->getEmail() : '');
-            $telephone = $posted('telephone');
-            if ($telephone === '') {
-                $existing = (string) $billing->getTelephone();
-                if ($existing !== '' && $existing !== '0000000000') {
-                    $telephone = $existing;
-                }
+
+            $existingPhone = (string) $billing->getTelephone();
+            if ($existingPhone === self::PLACEHOLDER_TELEPHONE) {
+                $existingPhone = '';
             }
-            if ($telephone === '') {
-                $telephone = '0000000000';
+            $telephone = $optional('telephone', $existingPhone);
+            if ($telephone === '' && $this->isTelephoneRequired()) {
+                $telephone = self::PLACEHOLDER_TELEPHONE;
             }
 
             $street1 = $posted('street1') ?: (string) ($existingStreet[0] ?? '');
-            $street2 = $posted('street2') ?: (string) ($existingStreet[1] ?? '');
-            $city    = $posted('city') ?: (string) $billing->getCity() ?: 'N/A';
-            $region  = $posted('region') ?: (string) $billing->getRegion();
-            $postcode = $posted('postcode') ?: (string) $billing->getPostcode() ?: '';
-            $countryId = $posted('country_id') ?: (string) $billing->getCountryId() ?: 'FR';
+            $street2 = $optional('street2', (string) ($existingStreet[1] ?? ''));
+            $city    = $posted('city') ?: (string) $billing->getCity();
+            $region  = $optional('region', (string) $billing->getRegion());
+            $postcode = $optional('postcode', (string) $billing->getPostcode());
+            $countryId = $posted('country_id') ?: (string) $billing->getCountryId();
+
+            $missing = [];
+            foreach ([
+                'first name' => $firstname, 'last name' => $lastname, 'street address' => $street1,
+                'city' => $city, 'country' => $countryId,
+            ] as $label => $value) {
+                if ($value === '') {
+                    $missing[] = $label;
+                }
+            }
+            if ($missing) {
+                return $result->setData([
+                    'success' => false,
+                    'message' => __('Please fill in the required field(s): %1.', implode(', ', $missing)),
+                ]);
+            }
+
+            [$regionId, $regionCode, $regionName] = $this->resolveRegion($region, $countryId);
 
             $billing->addData([
-                'firstname'  => $firstname,
-                'lastname'   => $lastname,
-                'email'      => $email,
-                'telephone'  => $telephone,
-                'street'     => array_filter([$street1, $street2]),
-                'city'       => $city,
-                'region'     => $region,
-                'postcode'   => $postcode,
-                'country_id' => $countryId,
+                'firstname'   => $firstname,
+                'lastname'    => $lastname,
+                'email'       => $email,
+                'telephone'   => $telephone,
+                'street'      => array_values(array_filter([$street1, $street2], 'strlen')),
+                'city'        => $city,
+                'region'      => $regionName,
+                'region_id'   => $regionId,
+                'region_code' => $regionCode,
+                'postcode'    => $postcode,
+                'country_id'  => $countryId,
             ]);
 
             // Prevent native Magento from independently deciding to save this
@@ -172,6 +208,16 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 }
             }
 
+            // PeopleSoft ID: never from the form. Keep what the populate flow put
+            // on the quote; for a logged-in customer with none on the quote, fall
+            // back to the customer record so it reaches the order.
+            if (trim((string) $quote->getData('peoplesoft_id')) === '' && $customer) {
+                $customerPs = trim((string) $customer->getData('peoplesoft_id'));
+                if ($customerPs !== '') {
+                    $quote->setData('peoplesoft_id', $customerPs);
+                }
+            }
+
             // Reserve the order increment id early so the flat-table export row
             // (written now, from the quote) lands under the same key the order
             // will use once native checkout places it.
@@ -190,12 +236,12 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
             $quote->collectTotals();
             $this->cartRepository->save($quote);
 
-            // Persist peoplesoft_id and gender on the customer record so
+            // Persist the (trusted) peoplesoft_id and gender on the customer record so
             // they appear in the admin customer account info page and are
             // available on every future checkout.
             if ($this->customerSession->isLoggedIn()) {
                 $customerId = (int) $this->customerSession->getCustomerId();
-                $psId       = trim((string) ($p['peoplesoft_id'] ?? ''));
+                $psId       = trim((string) $quote->getData('peoplesoft_id'));
                 $genderStr  = strtolower(trim((string) ($p['gender'] ?? '')));
 
                 try {
@@ -270,6 +316,41 @@ class Save implements HttpPostActionInterface, CsrfAwareActionInterface
                 'message' => __('Unable to save billing data.'),
             ]);
         }
+    }
+
+    private function isTelephoneRequired(): bool
+    {
+        return (string) $this->scopeConfig->getValue(
+            'customer/address/telephone_show',
+            ScopeInterface::SCOPE_STORE
+        ) === 'req';
+    }
+
+    /**
+     * Resolve a posted region (code or name) to directory region data.
+     * Countries without a region list keep the free-text value and region_id 0/null.
+     *
+     * @return array{0:?int,1:?string,2:string}
+     */
+    private function resolveRegion(string $region, string $countryId): array
+    {
+        if ($region === '') {
+            return [null, null, ''];
+        }
+        try {
+            $model = $this->regionFactory->create();
+            $model->loadByCode($region, $countryId);
+            if (!$model->getId()) {
+                $model = $this->regionFactory->create();
+                $model->loadByName($region, $countryId);
+            }
+            if ($model->getId()) {
+                return [(int) $model->getId(), (string) $model->getCode(), (string) $model->getName()];
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('INSEAD region lookup: ' . $e->getMessage());
+        }
+        return [null, null, $region];
     }
 
     /**
