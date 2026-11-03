@@ -27,6 +27,7 @@
             "residency_declaration": true,
             "peoplesoft_id": true,
             "reference_number": true,
+            "sector_of_activity": true,
             "insead_gst_amount": true,
             "insead_base_gst_amount": true,
             "insead_billing_confirmed": true
@@ -60,6 +61,7 @@
             "residency_declaration": true,
             "peoplesoft_id": true,
             "reference_number": true,
+            "sector_of_activity": true,
             "insead_gst_amount": true,
             "insead_base_gst_amount": true
         }
@@ -151,6 +153,37 @@
         "index": {
             "IDX_INSEAD_COMPANY_CUSTOMER_ORG": true,
             "INSEAD_COMPANY_CUSTOMER_ORGANIZATION_SYSTEM_ID": true
+        }
+    },
+    "sales_order_grid": {
+        "column": {
+            "peoplesoft_id": true,
+            "reference_number": true,
+            "financing_profile": true,
+            "company_legal_name": true,
+            "commercial_company_name": true,
+            "organization_type": true,
+            "sector_of_activity": true,
+            "tax_registration_status": true,
+            "uen": true,
+            "vat_intracommunity": true,
+            "vat_uae": true,
+            "gst_number": true,
+            "tax_id_number": true,
+            "certificate_id": true,
+            "duns_number": true,
+            "routing_address": true,
+            "tax_exempt_file": true,
+            "invoice_recipient_firstname": true,
+            "invoice_recipient_lastname": true,
+            "invoice_email": true,
+            "reg_type_label": true,
+            "reg_type_value": true,
+            "gender": true,
+            "nationality": true,
+            "job_industry": true,
+            "gst_declaration": true,
+            "residency_declaration": true
         }
     }
 }

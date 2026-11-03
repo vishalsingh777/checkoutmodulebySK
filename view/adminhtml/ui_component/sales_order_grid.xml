@@ -1,0 +1,196 @@
+<?xml version="1.0"?>
+<!-- Custom INSEAD e-invoicing columns in the admin order grid (hidden by default; enable via the Columns control). -->
+<listing xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Ui:etc/ui_configuration.xsd">
+    <columns name="sales_order_columns">
+        <column name="peoplesoft_id">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">PeopleSoft ID</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="reference_number">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Reference Number</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="financing_profile">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Financing Profile</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="company_legal_name">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Company Legal Name</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="commercial_company_name">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Commercial Company Name</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="organization_type">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Organisation Type</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="sector_of_activity">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Sector of Activity</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="tax_registration_status">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Tax Registration Status</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="uen">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Business Reg / SIRET / UEN</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="vat_intracommunity">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">VAT Intracommunity</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="vat_uae">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">VAT Number (UAE)</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="gst_number">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">GST Number</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="tax_id_number">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Tax ID Number</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="certificate_id">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Certificate ID</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="duns_number">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">D-U-N-S Number</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="routing_address">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Routing Address</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="tax_exempt_file">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Tax Exempt Certificate</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="invoice_recipient_firstname">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Invoice Recipient First Name</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="invoice_recipient_lastname">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Invoice Recipient Last Name</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="invoice_email">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Invoice Email</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="reg_type_label">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Registration Type</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="reg_type_value">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Registration Value</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="gender">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Gender</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="nationality">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Nationality</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="job_industry">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Job Industry</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="gst_declaration">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">GST Declaration</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+        <column name="residency_declaration">
+            <settings>
+                <filter>text</filter>
+                <label translate="true">Residency Declaration</label>
+                <visible>false</visible>
+            </settings>
+        </column>
+    </columns>
+</listing>

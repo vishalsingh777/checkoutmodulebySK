@@ -190,6 +190,11 @@ class MapPopulateBillingFieldsPlugin
             $quote->setData('job_industry', $jobIndustry);
         }
 
+        $sector = trim((string) $request->getData('sector_of_activity'));
+        if ($sector !== '') {
+            $quote->setData('sector_of_activity', $sector);
+        }
+
         // company_vat_number is the fallback for partners that only send the billing-address VAT.
         $vat = trim((string) $request->getData('vat_intracommunity')) ?: trim((string) $request->getData('company_vat_number'));
         if ($vat !== '') {

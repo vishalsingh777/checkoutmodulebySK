@@ -24,4 +24,38 @@
             <argument name="customerSession" xsi:type="object">Magento\Customer\Model\Session</argument>
         </arguments>
     </type>
+    <!-- Copy the custom order columns into sales_order_grid when the grid row is (re)indexed. -->
+    <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
+        <arguments>
+            <argument name="columns" xsi:type="array">
+                <item name="peoplesoft_id" xsi:type="string">sales_order.peoplesoft_id</item>
+                <item name="reference_number" xsi:type="string">sales_order.reference_number</item>
+                <item name="financing_profile" xsi:type="string">sales_order.financing_profile</item>
+                <item name="company_legal_name" xsi:type="string">sales_order.company_legal_name</item>
+                <item name="commercial_company_name" xsi:type="string">sales_order.commercial_company_name</item>
+                <item name="organization_type" xsi:type="string">sales_order.organization_type</item>
+                <item name="sector_of_activity" xsi:type="string">sales_order.sector_of_activity</item>
+                <item name="tax_registration_status" xsi:type="string">sales_order.tax_registration_status</item>
+                <item name="uen" xsi:type="string">sales_order.uen</item>
+                <item name="vat_intracommunity" xsi:type="string">sales_order.vat_intracommunity</item>
+                <item name="vat_uae" xsi:type="string">sales_order.vat_uae</item>
+                <item name="gst_number" xsi:type="string">sales_order.gst_number</item>
+                <item name="tax_id_number" xsi:type="string">sales_order.tax_id_number</item>
+                <item name="certificate_id" xsi:type="string">sales_order.certificate_id</item>
+                <item name="duns_number" xsi:type="string">sales_order.duns_number</item>
+                <item name="routing_address" xsi:type="string">sales_order.routing_address</item>
+                <item name="tax_exempt_file" xsi:type="string">sales_order.tax_exempt_file</item>
+                <item name="invoice_recipient_firstname" xsi:type="string">sales_order.invoice_recipient_firstname</item>
+                <item name="invoice_recipient_lastname" xsi:type="string">sales_order.invoice_recipient_lastname</item>
+                <item name="invoice_email" xsi:type="string">sales_order.invoice_email</item>
+                <item name="reg_type_label" xsi:type="string">sales_order.reg_type_label</item>
+                <item name="reg_type_value" xsi:type="string">sales_order.reg_type_value</item>
+                <item name="gender" xsi:type="string">sales_order.gender</item>
+                <item name="nationality" xsi:type="string">sales_order.nationality</item>
+                <item name="job_industry" xsi:type="string">sales_order.job_industry</item>
+                <item name="gst_declaration" xsi:type="string">sales_order.gst_declaration</item>
+                <item name="residency_declaration" xsi:type="string">sales_order.residency_declaration</item>
+            </argument>
+        </arguments>
+    </virtualType>
 </config>

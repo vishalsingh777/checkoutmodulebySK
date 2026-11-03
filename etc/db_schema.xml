@@ -36,6 +36,7 @@
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
         <column xsi:type="varchar" name="reference_number" nullable="true" length="255" comment="Reference Number (from APOL / integrated platform; shown on the invoice)"/>
+        <column xsi:type="varchar" name="sector_of_activity" nullable="true" length="255" comment="Sector of Activity (SIC)"/>
         <column xsi:type="smallint" name="insead_billing_confirmed" padding="5" unsigned="true" nullable="true" default="0"
                 comment="1 once the INSEAD Tax &amp; Legal / Billing Information step has been saved for this quote. Gates the handoff from the custom billing step to native Magento checkout for payment — see Observer\AddCustomCheckoutLayoutHandle."/>
         <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
@@ -70,10 +71,41 @@
         <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Self-funded residency declaration (agree/disagree)"/>
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
         <column xsi:type="varchar" name="reference_number" nullable="true" length="255" comment="Reference Number (from APOL / integrated platform; shown on the invoice)"/>
+        <column xsi:type="varchar" name="sector_of_activity" nullable="true" length="255" comment="Sector of Activity (SIC)"/>
         <column xsi:type="decimal" name="insead_gst_amount" scale="4" precision="20" nullable="true"
                 comment="LEGACY / no longer written to: Singapore GST used to be computed here by the now-retired Model\Total\Quote\Gst (B2B flat-rate total). GST is now calculated by native Tax Rules keyed to the 6 Singapore GST customer groups' Tax Classes instead — see Model\Gst\CustomerGroupResolver. Column kept (not dropped) in case existing rows still reference it; safe to remove in a future cleanup once confirmed unused."/>
         <column xsi:type="decimal" name="insead_base_gst_amount" scale="4" precision="20" nullable="true"
                 comment="Same as insead_gst_amount, in base currency."/>
+    </table>
+    <!-- Mirror of the custom sales_order columns so they show/filter/export in the admin order grid. -->
+    <table name="sales_order_grid">
+        <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft ID"/>
+        <column xsi:type="varchar" name="reference_number" nullable="true" length="255" comment="Reference Number"/>
+        <column xsi:type="varchar" name="financing_profile" nullable="true" length="50" comment="Financing Profile"/>
+        <column xsi:type="text" name="company_legal_name" nullable="true" comment="Company Legal Name"/>
+        <column xsi:type="text" name="commercial_company_name" nullable="true" comment="Commercial Company Name"/>
+        <column xsi:type="text" name="organization_type" nullable="true" comment="Organisation Type"/>
+        <column xsi:type="varchar" name="sector_of_activity" nullable="true" length="255" comment="Sector of Activity"/>
+        <column xsi:type="varchar" name="tax_registration_status" nullable="true" length="50" comment="Tax Registration Status"/>
+        <column xsi:type="text" name="uen" nullable="true" comment="Business Reg / SIRET / UEN"/>
+        <column xsi:type="text" name="vat_intracommunity" nullable="true" comment="VAT Intracommunity"/>
+        <column xsi:type="text" name="vat_uae" nullable="true" comment="VAT Number (UAE)"/>
+        <column xsi:type="text" name="gst_number" nullable="true" comment="GST Number"/>
+        <column xsi:type="text" name="tax_id_number" nullable="true" comment="Tax ID Number"/>
+        <column xsi:type="text" name="certificate_id" nullable="true" comment="Certificate ID"/>
+        <column xsi:type="text" name="duns_number" nullable="true" comment="D-U-N-S Number"/>
+        <column xsi:type="text" name="routing_address" nullable="true" comment="Routing Address"/>
+        <column xsi:type="text" name="tax_exempt_file" nullable="true" comment="Tax Exempt Certificate"/>
+        <column xsi:type="text" name="invoice_recipient_firstname" nullable="true" comment="Invoice Recipient First Name"/>
+        <column xsi:type="text" name="invoice_recipient_lastname" nullable="true" comment="Invoice Recipient Last Name"/>
+        <column xsi:type="text" name="invoice_email" nullable="true" comment="Invoice Email"/>
+        <column xsi:type="text" name="reg_type_label" nullable="true" comment="Registration Type"/>
+        <column xsi:type="text" name="reg_type_value" nullable="true" comment="Registration Value"/>
+        <column xsi:type="varchar" name="gender" nullable="true" length="32" comment="Gender"/>
+        <column xsi:type="varchar" name="nationality" nullable="true" length="2" comment="Nationality"/>
+        <column xsi:type="text" name="job_industry" nullable="true" comment="Job Industry"/>
+        <column xsi:type="varchar" name="gst_declaration" nullable="true" length="50" comment="GST Declaration"/>
+        <column xsi:type="varchar" name="residency_declaration" nullable="true" length="10" comment="Residency Declaration"/>
     </table>
     <table name="customer_entity">
         <column xsi:type="varchar" name="peoplesoft_id" nullable="true" length="50" comment="PeopleSoft Customer ID"/>
